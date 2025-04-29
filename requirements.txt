@@ -1,0 +1,17 @@
+# Core packages
+streamlit==1.32.0
+pandas==2.1.4
+numpy==1.26.3
+
+# Data visualization
+matplotlib==3.8.2
+seaborn==0.13.1
+
+# Statistical analysis
+scipy==1.12.0
+
+# Excel file support
+openpyxl==3.1.2
+
+# Optional but recommended for better performance
+pyarrow==14.0.1
