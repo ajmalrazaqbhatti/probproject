@@ -3,13 +3,30 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import base64
 
 # Set page configuration
 st.set_page_config(
     page_title="Insurance Data Analysis",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state= "collapsed"
 )
+
+# Function to load and display SVG
+def render_svg(svg_file):
+    with open(svg_file, "r") as f:
+        svg_content = f.read()
+    
+    b64 = base64.b64encode(svg_content.encode("utf-8")).decode("utf-8")
+    return f"""
+        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+            <img src="data:image/svg+xml;base64,{b64}" style="height:50px; margin-right: 20px;">
+        </div>
+    """
+
+# Display logo and title in a layout
+st.markdown(render_svg("logo.svg"), unsafe_allow_html=True)
 
 # Add page title and description
 st.title("Insurance Data Analysis")
@@ -70,96 +87,105 @@ if selected_region != 'All':
     filtered_df = filtered_df[filtered_df['region'] == selected_region]
 
 # Create tabs for different analyses
-tab_tabular, tab_stats, tab_graphical = st.tabs(["Tabular Analysis", "Descriptive Statistics", "Graphical Analysis"])
+tab_tabular, tab_stats, tab_graphical = st.tabs(["Data Overview", "Descriptive Statistics", "Graphical Analysis"])
 
 # Tabular Analysis Tab
 with tab_tabular:
-    # Display data explorer with a cleaner look
-    st.header("Data Explorer")
-    st.dataframe(filtered_df, use_container_width=True, height=300)
+    # Create sub-tabs within Data Overview
+    overview_tab, data_tab = st.tabs(["Data Explanation", "Tabular Representation"])
+    
+    # Data Explanation tab
+    with overview_tab:
+        st.header("Insurance Dataset Overview")
+        
+        st.markdown("""
+        ### Dataset Information
+        
+        Welcome to our insurance data analysis project! We've compiled this dataset containing information about medical insurance costs in the United States. 
+        We've included various demographic factors, health metrics, and the resulting insurance charges for individuals.
+        We obtained this complete dataset from Kaggle to help us understand what drives healthcare costs.
+        
+        ### Data Source
+        
+        We downloaded the dataset from Kaggle: [Healthcare Insurance](https://www.kaggle.com/datasets/willianoliveiragibin/healthcare-insurance).
+        It contains records from a medical insurance company that we're analyzing to understand the factors that influence 
+        insurance costs. The data represents a sample of policy holders across different regions of the 
+        United States that we've selected for our analysis.
+        
+        ### Variables Description
+        
+        In our dataset, we're working with these key variables:
+        
+        * **Age**: Age of the primary beneficiary (in years)
+        * **Sex**: Gender of the insurance contractor (female/male)
+        * **BMI**: Body Mass Index - a measure of body weight relative to height
+        * **Children**: Number of dependents covered by the insurance plan
+        * **Smoker**: Whether the beneficiary is a smoker (yes/no)
+        * **Region**: The beneficiary's residential area in the US (northeast, southeast, southwest, northwest)
+        * **Charges**: Individual medical costs billed by health insurance (in USD)
+        
+        ### Research Purpose
+        
+        In our analysis, we're aiming to identify patterns and factors that significantly affect insurance costs. 
+        We believe our findings can be valuable for both insurance providers in risk assessment and for individuals 
+        looking to understand their potential costs. We hope you find our insights useful!
+        """)
+    
+    # Tabular Data tab
+    with data_tab:
+        st.header("Insurance Data Table")
+        st.write("Explore the dataset with applied filters below:")
+        # Display data explorer with a cleaner look
+        st.dataframe(filtered_df, use_container_width=True, height=420)
 
 # Descriptive Statistics Tab
 with tab_stats:
     st.header("Descriptive Statistical Measures")
     
-    # Create sub-tabs for different statistical views
-    stats_tabs = st.tabs(["Summary Statistics", "Numerical Variables", "Categorical Variables", "Aggregated Views", "Correlation Analysis"])
+    # Create sub-tabs for different statistical views - removed "Summary Statistics"
+    stats_tabs = st.tabs(["Numerical Variables", "Categorical Variables", "Aggregated Views"])
     
-    with stats_tabs[0]:  # Summary Statistics
-        # Overall dataset statistics
-        st.subheader("Dataset Overview")
-        st.write(f"Total records: {len(filtered_df)}")
-        st.write(f"Number of variables: {filtered_df.shape[1]}")
-        
-        # Summary statistics for numerical variables
-        st.subheader("Summary Statistics for Numerical Variables")
-        numerical_stats = filtered_df.describe().T
-        # Format the numerical values for better display
-        formatted_stats = numerical_stats.copy()
-        for col in formatted_stats.columns:
-            if col in ['mean', '50%', 'std', 'min', 'max']:
-                if col == '50%':
-                    formatted_stats.rename(columns={'50%': 'median'}, inplace=True)
-                    col = 'median'
-                formatted_stats[col] = formatted_stats[col].map(lambda x: f"{x:,.2f}")
-                
-        st.dataframe(formatted_stats, use_container_width=True)
-        
-    with stats_tabs[1]:  # Numerical Variables Details
+    with stats_tabs[0]:  # Numerical Variables Details (now the first tab)
         # Select a numerical variable to analyze
         numerical_cols = ['age', 'bmi', 'children', 'charges']
         selected_num_col = st.selectbox("Select a numerical variable", numerical_cols)
         
-        col1, col2 = st.columns(2)
+        # Display variable summary
+        st.subheader(f"Analysis of {selected_num_col}")
         
-        with col1:
-            # Display central tendency measures
-            st.subheader("Central Tendency")
-            central_metrics = {
-                "Mean": filtered_df[selected_num_col].mean(),
-                "Median": filtered_df[selected_num_col].median(),
-                "Mode": filtered_df[selected_num_col].mode()[0]
-            }
-            
-            for metric, value in central_metrics.items():
-                st.metric(label=metric, value=f"{value:,.2f}")
-                
-        with col2:
-            # Display dispersion measures
-            st.subheader("Dispersion Measures")
-            dispersion_metrics = {
-                "Standard Deviation": filtered_df[selected_num_col].std(),
-                "Variance": filtered_df[selected_num_col].var(),
-                "Range": filtered_df[selected_num_col].max() - filtered_df[selected_num_col].min()
-            }
-            
-            for metric, value in dispersion_metrics.items():
-                st.metric(label=metric, value=f"{value:,.2f}")
+        # Central tendency metrics
+        st.write("#### Central Tendency")
+        central_cols = st.columns(3)
+        central_cols[0].metric("Mean", f"{filtered_df[selected_num_col].mean():,.2f}")
+        central_cols[1].metric("Median", f"{filtered_df[selected_num_col].median():,.2f}")
+        central_cols[2].metric("Mode", f"{filtered_df[selected_num_col].mode()[0]:,.2f}")
         
-        # Show additional metrics
-        st.subheader("Additional Metrics")
-        col1, col2, col3 = st.columns(3)
+        # Dispersion metrics
+        st.write("#### Dispersion Measures")
+        disp_cols = st.columns(3)
+        disp_cols[0].metric("Standard Deviation", f"{filtered_df[selected_num_col].std():,.2f}")
+        disp_cols[1].metric("Variance", f"{filtered_df[selected_num_col].var():,.2f}")
+        disp_cols[2].metric("Range", f"{filtered_df[selected_num_col].max() - filtered_df[selected_num_col].min():,.2f}")
         
-        with col1:
-            st.metric("Minimum", f"{filtered_df[selected_num_col].min():,.2f}")
-        with col2:
-            st.metric("Maximum", f"{filtered_df[selected_num_col].max():,.2f}")
-        with col3:
-            st.metric("IQR", f"{filtered_df[selected_num_col].quantile(0.75) - filtered_df[selected_num_col].quantile(0.25):,.2f}")
+        # Range metrics
+        st.write("#### Range Values")
+        range_cols = st.columns(3)
+        range_cols[0].metric("Minimum", f"{filtered_df[selected_num_col].min():,.2f}")
+        range_cols[1].metric("Maximum", f"{filtered_df[selected_num_col].max():,.2f}")
+        range_cols[2].metric("IQR", f"{filtered_df[selected_num_col].quantile(0.75) - filtered_df[selected_num_col].quantile(0.25):,.2f}")
 
-        # Show percentiles
-        st.subheader("Percentiles")
+        # Percentiles
+        st.write("#### Percentiles")
         percentiles = [0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99]
         percentile_values = [filtered_df[selected_num_col].quantile(p) for p in percentiles]
         
-        percentile_df = pd.DataFrame({
-            'Percentile': [f"{int(p*100)}%" for p in percentiles],
-            'Value': [f"{v:,.2f}" for v in percentile_values]
-        })
+        # Display percentiles in columns
+        perc_cols = st.columns(len(percentiles))
+        for i, (p, v) in enumerate(zip(percentiles, percentile_values)):
+            perc_cols[i].metric(f"{int(p*100)}th", f"{v:,.2f}")
         
-        st.dataframe(percentile_df, use_container_width=True)
-        
-    with stats_tabs[2]:  # Categorical Variables
+            
+    with stats_tabs[1]:  # Categorical Variables (now the second tab)
         # Select a categorical variable
         cat_cols = ['sex', 'smoker', 'region']
         selected_cat_col = st.selectbox("Select a categorical variable", cat_cols)
@@ -193,15 +219,22 @@ with tab_stats:
         # Format as percentages for display
         formatted_cont_table = cont_table.applymap(lambda x: f"{x:.1f}%")
         
-        st.write(f"Percentage distribution of {second_cat_col} within each {selected_cat_col} category:")
-        st.dataframe(formatted_cont_table, use_container_width=True)
-        
-        # Show raw counts too
+        # Get raw counts too
         raw_cont_table = pd.crosstab(filtered_df[selected_cat_col], filtered_df[second_cat_col])
-        st.write(f"Raw count distribution:")
-        st.dataframe(raw_cont_table, use_container_width=True)
         
-    with stats_tabs[3]:  # Aggregated Views (Moved from Tabular Analysis)
+        st.write(f"Distribution of {second_cat_col} within each {selected_cat_col} category:")
+        
+        # Display both tables together
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("Percentage Distribution:")
+            st.dataframe(formatted_cont_table, use_container_width=True)
+        
+        with col2:
+            st.write("Count Distribution:")
+            st.dataframe(raw_cont_table, use_container_width=True)
+        
+    with stats_tabs[2]:  # Aggregated Views (now the third tab)
         st.subheader("Aggregated Data by Categories")
         st.write("Explore how insurance charges vary across different categorical variables.")
         
@@ -210,8 +243,8 @@ with tab_stats:
 
         if group_by == 'age':
             # For age, create reasonable bins
-            age_bins = [18, 25, 35, 45, 55, 65, 100]
-            age_labels = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+']
+            age_bins = [18, 25, 35, 45, 55, 65]
+            age_labels = ['18-24', '25-34', '35-44', '45-54', '55-64']
             filtered_df['age_group'] = pd.cut(filtered_df['age'], bins=age_bins, labels=age_labels, right=False)
             group_data = filtered_df.groupby('age_group')['charges'].agg(['mean', 'median', 'min', 'max', 'count']).reset_index()
             group_data = group_data.rename(columns={
@@ -251,104 +284,6 @@ with tab_stats:
                     smoker_mean = smoker_row['Mean Charges'].iloc[0]
                     non_smoker_mean = non_smoker_row['Mean Charges'].iloc[0]
                     st.info(f"💡 Insight: Smokers on average have higher insurance charges ({smoker_mean}) compared to non-smokers ({non_smoker_mean}).")
-        
-        # Additional options for advanced analysis
-        st.subheader("Advanced Aggregation")
-        
-        # Option to add a secondary grouping variable
-        sec_group_options = ['None'] + [opt for opt in group_options if opt != group_by]
-        secondary_group = st.selectbox("Add secondary grouping", sec_group_options)
-        
-        if secondary_group != 'None':
-            st.write(f"Insurance charges grouped by {group_by.capitalize()} and {secondary_group.capitalize()}:")
-            
-            if secondary_group == 'age' and group_by != 'age':
-                # Handle age binning for secondary grouping
-                filtered_df['age_group'] = pd.cut(filtered_df['age'], bins=age_bins, labels=age_labels, right=False)
-                pivot_table = pd.pivot_table(
-                    filtered_df, 
-                    values='charges', 
-                    index=group_by, 
-                    columns='age_group',
-                    aggfunc='mean'
-                ).round(2)
-                
-            elif group_by == 'age' and secondary_group != 'age':
-                # Handle age binning for primary grouping
-                pivot_table = pd.pivot_table(
-                    filtered_df, 
-                    values='charges', 
-                    index='age_group', 
-                    columns=secondary_group,
-                    aggfunc='mean'
-                ).round(2)
-                
-            else:
-                # Regular pivot table for non-age groupings
-                pivot_table = pd.pivot_table(
-                    filtered_df, 
-                    values='charges', 
-                    index=group_by, 
-                    columns=secondary_group,
-                    aggfunc='mean'
-                ).round(2)
-            
-            # Format as currency
-            formatted_pivot = pivot_table.applymap(lambda x: f"${x:,.2f}")
-            st.dataframe(formatted_pivot, use_container_width=True)
-            
-            st.caption("Values represent average insurance charges")
-            
-    with stats_tabs[4]:  # Correlation Analysis
-        # Compute correlation matrix
-        numerical_df = filtered_df[['age', 'bmi', 'children', 'charges']]
-        corr_matrix = numerical_df.corr().round(3)
-        
-        st.subheader("Correlation Matrix")
-        st.dataframe(corr_matrix, use_container_width=True)
-        
-        # Display interpretation guide
-        st.subheader("Interpretation Guide")
-        st.write("""
-        - **Perfect positive correlation (1.0)**: As one variable increases, the other variable increases by a proportionate amount.
-        - **Strong positive correlation (0.7 to 0.9)**: As one variable increases, the other variable tends to increase.
-        - **Moderate positive correlation (0.4 to 0.6)**: Some tendency for one variable to increase as the other increases.
-        - **Weak positive correlation (0.1 to 0.3)**: Slight tendency for one variable to increase as the other increases.
-        - **No correlation (0)**: No relationship between the variables.
-        - **Negative correlations**: Similar to positive correlations but in the opposite direction.
-        """)
-        
-        # Show strongest correlations
-        st.subheader("Key Relationships")
-        
-        # Flatten the correlation matrix and find the strongest correlations
-        corr_pairs = []
-        for i in range(len(corr_matrix.columns)):
-            for j in range(i+1, len(corr_matrix.columns)):
-                corr_pairs.append({
-                    'Variables': f"{corr_matrix.columns[i]} & {corr_matrix.columns[j]}",
-                    'Correlation': corr_matrix.iloc[i, j]
-                })
-        
-        if corr_pairs:
-            corr_df = pd.DataFrame(corr_pairs)
-            corr_df = corr_df.sort_values('Correlation', key=abs, ascending=False)
-            
-            # Display correlations with interpretations
-            for _, row in corr_df.iterrows():
-                corr_value = row['Correlation']
-                vars_pair = row['Variables']
-                
-                if abs(corr_value) > 0.7:
-                    strength = "Strong"
-                elif abs(corr_value) > 0.4:
-                    strength = "Moderate"
-                else:
-                    strength = "Weak"
-                
-                direction = "positive" if corr_value > 0 else "negative"
-                
-                st.write(f"{vars_pair}: {corr_value:.3f} - {strength} {direction} correlation")
 
 # Graphical Analysis Tab
 with tab_graphical:
@@ -357,7 +292,4 @@ with tab_graphical:
     st.write("Interactive visualizations and charts will be available in future updates.")
     st.info("This section will include charts such as distribution plots, correlation matrices, and comparative analyses.")
 
-# Add footer with data source information
-st.markdown("---")
-st.caption("Data Source: Insurance dataset containing information about policyholders including age, gender, BMI, children, smoker status, region, and charges.")
-st.caption("© 2023 Insurance Data Analysis Tool")
+
