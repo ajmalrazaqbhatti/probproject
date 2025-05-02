@@ -150,8 +150,8 @@ with tab_tabular:
     with data_tab:
         st.header("Punjab Crop Data Table")
         st.write("Explore the dataset with applied filters below:")
-        # Display data explorer with a cleaner look
-        st.dataframe(filtered_df, use_container_width=True, height=420)
+        # Display data explorer with a cleaner look - remove height parameter to avoid PyArrow issues
+        st.dataframe(filtered_df, use_container_width=True)
 
 # Descriptive Statistics Tab
 with tab_stats:
