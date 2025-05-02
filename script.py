@@ -1,7 +1,8 @@
 import pandas as pd
 import os
+import numpy as np
 
-def filter_rice_data(input_file='cropdata.csv', output_file='crop_punjab.csv'):
+def preprocess_punjab_data(input_file='croppunjab.csv', output_file='x.csv'):
     try:
         # Check if input file exists
         if not os.path.exists(input_file):
@@ -12,25 +13,27 @@ def filter_rice_data(input_file='cropdata.csv', output_file='crop_punjab.csv'):
         print(f"Reading data from {input_file}...")
         df = pd.read_csv(input_file)
         
-        # Check if 'Crop' column exists
-        if 'State' not in df.columns:
-            print("Error: 'Crop' column not found in the CSV file.")
+        # Check if required columns exist
+        required_columns = ['Crop','Crop_Year','Area','Production', 'Yield']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: The following required columns are missing: {', '.join(missing_columns)}")
             return False
         
-        # Filter rows where Crop is "Rice"
-        print("Filtering data for Rice crops...")
-        rice_df = df[df['State'] == 'Punjab']
+        # Filter to keep only Wheat, Rice, and Sugarcane crops
+        print("Filtering data to keep only Wheat, Rice, and Sugarcane crops...")
+        df = df[df['Crop'].isin(['Wheat', 'Rice', 'Sugarcane'])].copy()
         
-        # Check if any rice data was found
-        if rice_df.empty:
-            print("No rows found with Crop as 'Rice'.")
+        # Check if any data remains after crop filtering
+        if df.empty:
+            print("No data found for Wheat, Rice, or Sugarcane crops.")
             return False
         
-        # Save filtered data to a new CSV file
+        # Save filtered data directly without aggregation or recalculation
         print(f"Saving filtered data to {output_file}...")
-        rice_df.to_csv(output_file, index=False)
+        df.to_csv(output_file, index=False)
         
-        print(f"Successfully saved {len(rice_df)} rows of Rice crop data to {output_file}")
+        print(f"Successfully saved {len(df)} rows of filtered crop data to {output_file}")
         return True
     
     except Exception as e:
@@ -38,4 +41,4 @@ def filter_rice_data(input_file='cropdata.csv', output_file='crop_punjab.csv'):
         return False
 
 if __name__ == "__main__":
-    filter_rice_data()
+    preprocess_punjab_data()

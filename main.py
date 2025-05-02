@@ -8,8 +8,8 @@ import scipy.stats as stats
 
 # Set page configuration
 st.set_page_config(
-    page_title="Insurance Data Analysis",
-    page_icon="📊",
+    page_title="Punjab Crop Data Analysis",
+    page_icon="🌾",
     layout="wide",
     initial_sidebar_state= "expanded",
 )
@@ -30,13 +30,13 @@ def render_svg(svg_file):
 st.markdown(render_svg("logo.svg"), unsafe_allow_html=True)
 
 # Add page title and description
-st.title("Insurance Data Analysis")
-st.write("Comprehensive analysis of insurance charges based on various demographic factors.")
+st.title("Punjab Crop Data Analysis")
+st.write("Comprehensive analysis of crop production and yield in Punjab across various years.")
 
 # Load the dataset
 @st.cache_data
 def load_data():
-    data = pd.read_csv('insurance.csv')
+    data = pd.read_csv('croppunjab.csv')
     return data
 
 # Load the data
@@ -49,43 +49,47 @@ except Exception as e:
 # Move data filters to sidebar
 st.sidebar.header("Data Filters")
 
-# Age filter
-age_range = st.sidebar.slider(
-    "Age Range", 
-    min_value=int(df['age'].min()), 
-    max_value=int(df['age'].max()),
-    value=(int(df['age'].min()), int(df['age'].max()))
+# Crop_Year filter
+year_range = st.sidebar.slider(
+    "Year Range", 
+    min_value=int(df['Crop_Year'].min()), 
+    max_value=int(df['Crop_Year'].max()),
+    value=(int(df['Crop_Year'].min()), int(df['Crop_Year'].max()))
 )
 
-# Gender filter
-gender_options = ['All'] + list(df['sex'].unique())
-selected_gender = st.sidebar.selectbox("Gender", gender_options)
+# Crop filter
+crop_options = ['All'] + list(df['Crop'].unique())
+selected_crop = st.sidebar.selectbox("Crop", crop_options)
 
-# Smoker filter
-smoker_options = ['All'] + list(df['smoker'].unique())
-selected_smoker = st.sidebar.selectbox("Smoker", smoker_options)
-
-# Region filter
-region_options = ['All'] + list(df['region'].unique())
-selected_region = st.sidebar.selectbox("Region", region_options)
+# Area filter
+area_options = ['All']
+area_min = int(df['Area'].min())
+area_max = int(df['Area'].max())
+area_ranges = [(area_min, 50000), (50001, 100000), (100001, 200000), (200001, area_max)]
+area_labels = ['Small (<50k)', 'Medium (50k-100k)', 'Large (100k-200k)', 'Very Large (>200k)']
+area_options.extend(area_labels)
+selected_area = st.sidebar.selectbox("Area Size", area_options)
 
 # Filter data based on selections
 filtered_df = df.copy()
 
-# Apply age filter
-filtered_df = filtered_df[(filtered_df['age'] >= age_range[0]) & (filtered_df['age'] <= age_range[1])]
+# Apply year filter
+filtered_df = filtered_df[(filtered_df['Crop_Year'] >= year_range[0]) & (filtered_df['Crop_Year'] <= year_range[1])]
 
-# Apply gender filter
-if selected_gender != 'All':
-    filtered_df = filtered_df[filtered_df['sex'] == selected_gender]
+# Apply crop filter
+if selected_crop != 'All':
+    filtered_df = filtered_df[filtered_df['Crop'] == selected_crop]
 
-# Apply smoker filter
-if selected_smoker != 'All':
-    filtered_df = filtered_df[filtered_df['smoker'] == selected_smoker]
-
-# Apply region filter
-if selected_region != 'All':
-    filtered_df = filtered_df[filtered_df['region'] == selected_region]
+# Apply area filter
+if selected_area != 'All':
+    if selected_area == 'Small (<50k)':
+        filtered_df = filtered_df[(filtered_df['Area'] >= area_ranges[0][0]) & (filtered_df['Area'] <= area_ranges[0][1])]
+    elif selected_area == 'Medium (50k-100k)':
+        filtered_df = filtered_df[(filtered_df['Area'] >= area_ranges[1][0]) & (filtered_df['Area'] <= area_ranges[1][1])]
+    elif selected_area == 'Large (100k-200k)':
+        filtered_df = filtered_df[(filtered_df['Area'] >= area_ranges[2][0]) & (filtered_df['Area'] <= area_ranges[2][1])]
+    elif selected_area == 'Very Large (>200k)':
+        filtered_df = filtered_df[(filtered_df['Area'] >= area_ranges[3][0]) & (filtered_df['Area'] <= area_ranges[3][1])]
 
 # Create tabs for different analyses
 tab_tabular, tab_stats, tab_graphical = st.tabs(["Data Overview", "Descriptive Statistics", "Graphical Analysis"])
@@ -97,44 +101,39 @@ with tab_tabular:
     
     # Data Explanation tab
     with overview_tab:
-        st.header("Insurance Dataset Overview")
+        st.header("Punjab Crop Dataset Overview")
         
         st.markdown("""
         ### Dataset Information
         
-        Welcome to our insurance data analysis project! We've compiled this dataset containing information about medical insurance costs in the United States. 
-        We've included various demographic factors, health metrics, and the resulting insurance charges for individuals.
-        We obtained this complete dataset from Kaggle to help us understand what drives healthcare costs.
+        Welcome to our Punjab crop data analysis project! We've compiled this dataset containing information about 
+        agricultural production in Punjab, focusing on major crops across different years.
         
         ### Data Source
         
-        We downloaded the dataset from Kaggle: [Healthcare Insurance](https://www.kaggle.com/datasets/willianoliveiragibin/healthcare-insurance).
-        It contains records from a medical insurance company that we're analyzing to understand the factors that influence 
-        insurance costs. The data represents a sample of policy holders across different regions of the 
-        United States that we've selected for our analysis.
+        This dataset contains records of crop production across Punjab region, with data spanning multiple years.
+        It provides insights into agricultural outputs, cultivation areas, and yield efficiency.
         
         ### Variables Description
         
         In our dataset, we're working with these key variables:
         
-        * **Age**: Age of the primary beneficiary (in years)
-        * **Sex**: Gender of the insurance contractor (female/male)
-        * **BMI**: Body Mass Index - a measure of body weight relative to height
-        * **Children**: Number of dependents covered by the insurance plan
-        * **Smoker**: Whether the beneficiary is a smoker (yes/no)
-        * **Region**: The beneficiary's residential area in the US (northeast, southeast, southwest, northwest)
-        * **Charges**: Individual medical costs billed by health insurance (in USD)
+        * **Crop**: Type of crop (Rice, Sugarcane, Wheat)
+        * **Crop_Year**: Year of crop production
+        * **Area**: Area of cultivation (likely in hectares)
+        * **Production**: Amount of crop produced (likely in tons)
+        * **Yield**: Production per unit area (Production/Area)
         
         ### Research Purpose
         
-        In our analysis, we're aiming to identify patterns and factors that significantly affect insurance costs. 
-        We believe our findings can be valuable for both insurance providers in risk assessment and for individuals 
-        looking to understand their potential costs. We hope you find our insights useful!
+        In our analysis, we're aiming to identify patterns and factors that significantly affect crop production and yield
+        over the years. We believe our findings can be valuable for agricultural planning, resource allocation, and 
+        understanding production trends in the region.
         """)
     
     # Tabular Data tab
     with data_tab:
-        st.header("Insurance Data Table")
+        st.header("Punjab Crop Data Table")
         st.write("Explore the dataset with applied filters below:")
         # Display data explorer with a cleaner look
         st.dataframe(filtered_df, use_container_width=True, height=420)
@@ -148,7 +147,7 @@ with tab_stats:
     
     with stats_tabs[0]:  # Numerical Variables Details (now the first tab)
         # Select a numerical variable to analyze
-        numerical_cols = ['age', 'bmi', 'children', 'charges']
+        numerical_cols = ['Crop_Year', 'Area', 'Production', 'Yield']
         selected_num_col = st.selectbox("Select a numerical variable", numerical_cols)
         
         # Display variable summary
@@ -188,7 +187,7 @@ with tab_stats:
             
     with stats_tabs[1]:  # Categorical Variables (now the second tab)
         # Select a categorical variable
-        cat_cols = ['sex', 'smoker', 'region']
+        cat_cols = ['Crop']
         selected_cat_col = st.selectbox("Select a categorical variable", cat_cols)
         
         # Show frequency distribution
@@ -206,14 +205,17 @@ with tab_stats:
         # Contingency tables
         st.subheader("Contingency Tables")
         
-        # Select a second categorical variable to create a cross-tabulation
-        other_cat_cols = [col for col in cat_cols if col != selected_cat_col]
-        second_cat_col = st.selectbox("Select a second categorical variable for cross-tabulation", other_cat_cols)
+        # Create year groups for cross-tabulation
+        filtered_df['Year_Group'] = pd.cut(
+            filtered_df['Crop_Year'], 
+            bins=[1996, 2000, 2005, 2010, 2015, 2020],
+            labels=['1997-2000', '2001-2005', '2006-2010', '2011-2015', '2016-2019']
+        )
         
         # Create and display the contingency table
         cont_table = pd.crosstab(
             filtered_df[selected_cat_col], 
-            filtered_df[second_cat_col],
+            filtered_df['Year_Group'],
             normalize='index'
         ).round(3) * 100
         
@@ -221,9 +223,9 @@ with tab_stats:
         formatted_cont_table = cont_table.applymap(lambda x: f"{x:.1f}%")
         
         # Get raw counts too
-        raw_cont_table = pd.crosstab(filtered_df[selected_cat_col], filtered_df[second_cat_col])
+        raw_cont_table = pd.crosstab(filtered_df[selected_cat_col], filtered_df['Year_Group'])
         
-        st.write(f"Distribution of {second_cat_col} within each {selected_cat_col} category:")
+        st.write(f"Distribution of Year Groups within each {selected_cat_col} category:")
         
         # Display both tables together
         col1, col2 = st.columns(2)
@@ -237,54 +239,51 @@ with tab_stats:
         
     with stats_tabs[2]:  # Aggregated Views (now the third tab)
         st.subheader("Aggregated Data by Categories")
-        st.write("Explore how insurance charges vary across different categorical variables.")
+        st.write("Explore how crop production and yield vary across different categorical variables.")
         
-        group_options = ['sex', 'smoker', 'region', 'age']
+        group_options = ['Crop', 'Crop_Year']
         group_by = st.selectbox("Group by", group_options)
 
-        if group_by == 'age':
-            # For age, create reasonable bins
-            age_bins = [18, 25, 35, 45, 55, 65]
-            age_labels = ['18-24', '25-34', '35-44', '45-54', '55-64']
-            filtered_df['age_group'] = pd.cut(filtered_df['age'], bins=age_bins, labels=age_labels, right=False)
-            group_data = filtered_df.groupby('age_group')['charges'].agg(['mean', 'median', 'min', 'max', 'count']).reset_index()
+        if group_by == 'Crop_Year':
+            # For year, create reasonable bins
+            year_bins = [1996, 2000, 2005, 2010, 2015, 2020]
+            year_labels = ['1997-2000', '2001-2005', '2006-2010', '2011-2015', '2016-2019']
+            filtered_df['Year_Group'] = pd.cut(filtered_df['Crop_Year'], bins=year_bins, labels=year_labels)
+            group_data = filtered_df.groupby('Year_Group')['Yield'].agg(['mean', 'median', 'min', 'max', 'count']).reset_index()
             group_data = group_data.rename(columns={
-                'age_group': 'Age Group',
-                'mean': 'Mean Charges',
-                'median': 'Median Charges',
-                'min': 'Min Charges',
-                'max': 'Max Charges',
+                'Year_Group': 'Year Group',
+                'mean': 'Mean Yield',
+                'median': 'Median Yield',
+                'min': 'Min Yield',
+                'max': 'Max Yield',
                 'count': 'Count'
             })
         else:
             # For other categorical variables
-            group_data = filtered_df.groupby(group_by)['charges'].agg(['mean', 'median', 'min', 'max', 'count']).reset_index()
+            group_data = filtered_df.groupby(group_by)['Yield'].agg(['mean', 'median', 'min', 'max', 'count']).reset_index()
             group_data = group_data.rename(columns={
                 group_by: group_by.capitalize(),
-                'mean': 'Mean Charges',
-                'median': 'Median Charges',
-                'min': 'Min Charges',
-                'max': 'Max Charges',
+                'mean': 'Mean Yield',
+                'median': 'Median Yield',
+                'min': 'Min Yield',
+                'max': 'Max Yield',
                 'count': 'Count'
             })
         
-        # Format currency columns
-        for col in ['Mean Charges', 'Median Charges', 'Min Charges', 'Max Charges']:
-            group_data[col] = group_data[col].map('${:,.2f}'.format)
+        # Format numeric columns
+        for col in ['Mean Yield', 'Median Yield', 'Min Yield', 'Max Yield']:
+            group_data[col] = group_data[col].map('{:,.2f}'.format)
         
         # Add visual cues
-        st.write("Statistical summary of insurance charges grouped by " + group_by.capitalize() + ":")
+        st.write("Statistical summary of crop yield grouped by " + group_by.capitalize() + ":")
         st.dataframe(group_data, use_container_width=True)
         
         # Add some insights below the table
-        if group_by == 'smoker':
-            if 'yes' in group_data[group_by.capitalize()].values and 'no' in group_data[group_by.capitalize()].values:
-                smoker_row = group_data[group_data[group_by.capitalize()] == 'yes']
-                non_smoker_row = group_data[group_data[group_by.capitalize()] == 'no']
-                if not smoker_row.empty and not non_smoker_row.empty:
-                    smoker_mean = smoker_row['Mean Charges'].iloc[0]
-                    non_smoker_mean = non_smoker_row['Mean Charges'].iloc[0]
-                    st.info(f"💡 Insight: Smokers on average have higher insurance charges ({smoker_mean}) compared to non-smokers ({non_smoker_mean}).")
+        if group_by == 'Crop':
+            crops = group_data['Crop'].values
+            if len(crops) > 1:
+                highest_yield_crop = group_data.iloc[group_data['Mean Yield'].astype(str).astype(float).argmax()]
+                st.info(f"💡 Insight: {highest_yield_crop['Crop']} has the highest average yield ({highest_yield_crop['Mean Yield']}) among the crops analyzed.")
 
 # Graphical Analysis Tab
 with tab_graphical:
@@ -331,83 +330,92 @@ with tab_graphical:
             # Select category for x-axis
             cat_var = st.selectbox(
                 "Select Category Variable (X-axis)",
-                ["region", "sex", "smoker"],
+                ["Crop", "Crop_Year"],
                 key="simple_bar_x"
             )
+            
+            if cat_var == "Crop_Year" and len(filtered_df['Crop_Year'].unique()) > 10:
+                # Create year groups for better visualization
+                filtered_df['Year_Group'] = pd.cut(
+                    filtered_df['Crop_Year'], 
+                    bins=[1996, 2000, 2005, 2010, 2015, 2020],
+                    labels=['1997-2000', '2001-2005', '2006-2010', '2011-2015', '2016-2019']
+                )
+                cat_var = 'Year_Group'
             
             # Select numeric variable for y-axis
             y_metric = st.selectbox(
                 "Select Metric (Y-axis)",
-                ["Average Charges", "Count", "Average BMI", "Average Age"],
+                ["Average Yield", "Count", "Average Area", "Average Production"],
                 key="simple_bar_y"
             )
             
             # Calculate metrics based on selection with confidence intervals
-            if y_metric == "Average Charges":
+            if y_metric == "Average Yield":
                 if show_ci:
                     # Group data and calculate confidence intervals
                     ci_data = []
                     unique_categories = filtered_df[cat_var].unique()
                     
                     for category in unique_categories:
-                        subset = filtered_df[filtered_df[cat_var] == category]['charges']
+                        subset = filtered_df[filtered_df[cat_var] == category]['Yield']
                         mean, ci_lower, ci_upper = calculate_ci(subset, confidence=confidence_level)
                         ci_data.append({
                             cat_var: category,
-                            "Average Charges": mean,
+                            "Average Yield": mean,
                             "CI Lower": ci_lower,
                             "CI Upper": ci_upper
                         })
                     
                     bar_data = pd.DataFrame(ci_data)
                 else:
-                    bar_data = filtered_df.groupby(cat_var)['charges'].mean().reset_index()
-                    bar_data.columns = [cat_var, "Average Charges"]
+                    bar_data = filtered_df.groupby(cat_var)['Yield'].mean().reset_index()
+                    bar_data.columns = [cat_var, "Average Yield"]
             elif y_metric == "Count":
                 bar_data = filtered_df.groupby(cat_var).size().reset_index(name="Count")
                 # No CI for counts
-            elif y_metric == "Average BMI":
+            elif y_metric == "Average Area":
                 if show_ci:
                     # Group data and calculate confidence intervals
                     ci_data = []
                     unique_categories = filtered_df[cat_var].unique()
                     
                     for category in unique_categories:
-                        subset = filtered_df[filtered_df[cat_var] == category]['bmi']
+                        subset = filtered_df[filtered_df[cat_var] == category]['Area']
                         mean, ci_lower, ci_upper = calculate_ci(subset, confidence=confidence_level)
                         ci_data.append({
                             cat_var: category,
-                            "Average BMI": mean,
+                            "Average Area": mean,
                             "CI Lower": ci_lower,
                             "CI Upper": ci_upper
                         })
                     
                     bar_data = pd.DataFrame(ci_data)
                 else:
-                    bar_data = filtered_df.groupby(cat_var)['bmi'].mean().reset_index()
-                    bar_data.columns = [cat_var, "Average BMI"]
-            else:  # Average Age
+                    bar_data = filtered_df.groupby(cat_var)['Area'].mean().reset_index()
+                    bar_data.columns = [cat_var, "Average Area"]
+            else:  # Average Production
                 if show_ci:
                     # Group data and calculate confidence intervals
                     ci_data = []
                     unique_categories = filtered_df[cat_var].unique()
                     
                     for category in unique_categories:
-                        subset = filtered_df[filtered_df[cat_var] == category]['age']
+                        subset = filtered_df[filtered_df[cat_var] == category]['Production']
                         mean, ci_lower, ci_upper = calculate_ci(subset, confidence=confidence_level)
                         ci_data.append({
                             cat_var: category,
-                            "Average Age": mean,
+                            "Average Production": mean,
                             "CI Lower": ci_lower,
                             "CI Upper": ci_upper
                         })
                     
                     bar_data = pd.DataFrame(ci_data)
                 else:
-                    bar_data = filtered_df.groupby(cat_var)['age'].mean().reset_index()
-                    bar_data.columns = [cat_var, "Average Age"]
+                    bar_data = filtered_df.groupby(cat_var)['Production'].mean().reset_index()
+                    bar_data.columns = [cat_var, "Average Production"]
                 
-            # Create bar chart - Reduced size from (10, 6) to (8, 4.5)
+            # Create bar chart
             fig, ax = plt.subplots(figsize=(8, 4.5))
             
             if show_ci and y_metric != "Count":
@@ -415,13 +423,13 @@ with tab_graphical:
                 y_col = bar_data.columns[1]
                 yerr = [bar_data[y_col] - bar_data["CI Lower"], bar_data["CI Upper"] - bar_data[y_col]]
                 plt.bar(bar_data[cat_var], bar_data[y_col], yerr=yerr, capsize=10)
-                plt.title(f"{y_metric} by {cat_var.capitalize()} with {int(confidence_level*100)}% Confidence Intervals")
+                plt.title(f"{y_metric} by {cat_var.replace('_', ' ').capitalize()} with {int(confidence_level*100)}% Confidence Intervals")
             else:
                 # Regular bar chart without CI
                 sns.barplot(data=bar_data, x=cat_var, y=bar_data.columns[1], ax=ax)
-                plt.title(f"{y_metric} by {cat_var.capitalize()}")
+                plt.title(f"{y_metric} by {cat_var.replace('_', ' ').capitalize()}")
                 
-            plt.xlabel(cat_var.capitalize())
+            plt.xlabel(cat_var.replace('_', ' ').capitalize())
             plt.ylabel(y_metric)
             plt.xticks(rotation=45)
             plt.tight_layout()
@@ -449,26 +457,29 @@ with tab_graphical:
             # Select category for x-axis
             primary_cat = st.selectbox(
                 "Select Primary Category (X-axis)",
-                ["region", "sex", "smoker"],
+                ["Crop"],
                 key="multi_bar_x"
             )
             
-            # Select category for grouping
-            secondary_cat = st.selectbox(
-                "Select Secondary Category (Groups)",
-                [cat for cat in ["region", "sex", "smoker"] if cat != primary_cat],
-                key="multi_bar_group"
+            # Create year groups
+            filtered_df['Year_Group'] = pd.cut(
+                filtered_df['Crop_Year'], 
+                bins=[1996, 2000, 2005, 2010, 2015, 2020],
+                labels=['1997-2000', '2001-2005', '2006-2010', '2011-2015', '2016-2019']
             )
+            
+            # Select category for grouping
+            secondary_cat = "Year_Group"
             
             # Select metric for y-axis
             y_metric = st.selectbox(
                 "Select Metric (Y-axis)",
-                ["Average Charges", "Count", "Average BMI", "Average Age"],
+                ["Average Yield", "Count", "Average Area", "Average Production"],
                 key="multi_bar_y"
             )
             
             # Calculate data for the grouped bar chart with confidence intervals
-            if y_metric == "Average Charges":
+            if y_metric == "Average Yield":
                 if show_ci and y_metric != "Count":
                     # Get all combinations of primary and secondary categories
                     primary_cats = filtered_df[primary_cat].unique()
@@ -480,14 +491,14 @@ with tab_graphical:
                     for p_cat in primary_cats:
                         for s_cat in secondary_cats:
                             subset = filtered_df[(filtered_df[primary_cat] == p_cat) & 
-                                              (filtered_df[secondary_cat] == s_cat)]['charges']
+                                              (filtered_df[secondary_cat] == s_cat)]['Yield']
                             
                             if len(subset) > 1:  # Need at least 2 points for CI
                                 mean, ci_lower, ci_upper = calculate_ci(subset, confidence=confidence_level)
                                 multi_ci_data.append({
                                     primary_cat: p_cat,
                                     secondary_cat: s_cat,
-                                    "Average Charges": mean,
+                                    "Average Yield": mean,
                                     "CI Lower": ci_lower,
                                     "CI Upper": ci_upper,
                                     "CI Error": mean - ci_lower  # For error bars
@@ -497,7 +508,7 @@ with tab_graphical:
                                 multi_ci_data.append({
                                     primary_cat: p_cat,
                                     secondary_cat: s_cat,
-                                    "Average Charges": mean,
+                                    "Average Yield": mean,
                                     "CI Lower": mean,
                                     "CI Upper": mean,
                                     "CI Error": 0  # No error for single point
@@ -505,14 +516,14 @@ with tab_graphical:
                     
                     multi_bar_data = pd.DataFrame(multi_ci_data)
                 else:
-                    multi_bar_data = filtered_df.groupby([primary_cat, secondary_cat])['charges'].mean().reset_index()
-                    multi_bar_data.columns = [primary_cat, secondary_cat, "Average Charges"]
+                    multi_bar_data = filtered_df.groupby([primary_cat, secondary_cat])['Yield'].mean().reset_index()
+                    multi_bar_data.columns = [primary_cat, secondary_cat, "Average Yield"]
             elif y_metric == "Count":
                 multi_bar_data = filtered_df.groupby([primary_cat, secondary_cat]).size().reset_index(name="Count")
                 # No CI for counts
-            elif y_metric == "Average BMI":
+            elif y_metric == "Average Area":
                 if show_ci and y_metric != "Count":
-                    # Similar approach as for charges
+                    # Similar approach as for yield
                     primary_cats = filtered_df[primary_cat].unique()
                     secondary_cats = filtered_df[secondary_cat].unique()
                     
@@ -521,14 +532,14 @@ with tab_graphical:
                     for p_cat in primary_cats:
                         for s_cat in secondary_cats:
                             subset = filtered_df[(filtered_df[primary_cat] == p_cat) & 
-                                              (filtered_df[secondary_cat] == s_cat)]['bmi']
+                                              (filtered_df[secondary_cat] == s_cat)]['Area']
                             
                             if len(subset) > 1:
                                 mean, ci_lower, ci_upper = calculate_ci(subset, confidence=confidence_level)
                                 multi_ci_data.append({
                                     primary_cat: p_cat,
                                     secondary_cat: s_cat,
-                                    "Average BMI": mean,
+                                    "Average Area": mean,
                                     "CI Lower": ci_lower,
                                     "CI Upper": ci_upper,
                                     "CI Error": mean - ci_lower
@@ -538,7 +549,7 @@ with tab_graphical:
                                 multi_ci_data.append({
                                     primary_cat: p_cat,
                                     secondary_cat: s_cat,
-                                    "Average BMI": mean,
+                                    "Average Area": mean,
                                     "CI Lower": mean,
                                     "CI Upper": mean,
                                     "CI Error": 0
@@ -546,11 +557,11 @@ with tab_graphical:
                     
                     multi_bar_data = pd.DataFrame(multi_ci_data)
                 else:
-                    multi_bar_data = filtered_df.groupby([primary_cat, secondary_cat])['bmi'].mean().reset_index()
-                    multi_bar_data.columns = [primary_cat, secondary_cat, "Average BMI"]
-            else:  # Average Age
+                    multi_bar_data = filtered_df.groupby([primary_cat, secondary_cat])['Area'].mean().reset_index()
+                    multi_bar_data.columns = [primary_cat, secondary_cat, "Average Area"]
+            else:  # Average Production
                 if show_ci and y_metric != "Count":
-                    # Similar approach as for charges
+                    # Similar approach as for yield
                     primary_cats = filtered_df[primary_cat].unique()
                     secondary_cats = filtered_df[secondary_cat].unique()
                     
@@ -559,14 +570,14 @@ with tab_graphical:
                     for p_cat in primary_cats:
                         for s_cat in secondary_cats:
                             subset = filtered_df[(filtered_df[primary_cat] == p_cat) & 
-                                              (filtered_df[secondary_cat] == s_cat)]['age']
+                                              (filtered_df[secondary_cat] == s_cat)]['Production']
                             
                             if len(subset) > 1:
                                 mean, ci_lower, ci_upper = calculate_ci(subset, confidence=confidence_level)
                                 multi_ci_data.append({
                                     primary_cat: p_cat,
                                     secondary_cat: s_cat,
-                                    "Average Age": mean,
+                                    "Average Production": mean,
                                     "CI Lower": ci_lower,
                                     "CI Upper": ci_upper,
                                     "CI Error": mean - ci_lower
@@ -576,7 +587,7 @@ with tab_graphical:
                                 multi_ci_data.append({
                                     primary_cat: p_cat,
                                     secondary_cat: s_cat,
-                                    "Average Age": mean,
+                                    "Average Production": mean,
                                     "CI Lower": mean,
                                     "CI Upper": mean,
                                     "CI Error": 0
@@ -584,15 +595,15 @@ with tab_graphical:
                     
                     multi_bar_data = pd.DataFrame(multi_ci_data)
                 else:
-                    multi_bar_data = filtered_df.groupby([primary_cat, secondary_cat])['age'].mean().reset_index()
-                    multi_bar_data.columns = [primary_cat, secondary_cat, "Average Age"]
+                    multi_bar_data = filtered_df.groupby([primary_cat, secondary_cat])['Production'].mean().reset_index()
+                    multi_bar_data.columns = [primary_cat, secondary_cat, "Average Production"]
                 
-            # Create multi-bar chart - Reduced size from (12, 7) to (8, 4.5)
+            # Create multi-bar chart
             fig, ax = plt.subplots(figsize=(8, 4.5))
             
             if show_ci and y_metric != "Count":
                 # Create multi-bar chart with error bars
-                data_col = multi_bar_data.columns[2]  # Either "Average Charges", "Average BMI", or "Average Age"
+                data_col = multi_bar_data.columns[2]  # The metric column name
                 
                 # Get all categories
                 all_primary_cats = multi_bar_data[primary_cat].unique()
@@ -614,16 +625,16 @@ with tab_graphical:
                 
                 ax.set_xticks(x)
                 ax.set_xticklabels(all_primary_cats)
-                plt.title(f"{y_metric} by {primary_cat.capitalize()} and {secondary_cat.capitalize()} with {int(confidence_level*100)}% CI")
+                plt.title(f"{y_metric} by {primary_cat} and Year Group with {int(confidence_level*100)}% CI")
             else:
                 # Regular multi-bar chart without CI
                 sns.barplot(data=multi_bar_data, x=primary_cat, y=multi_bar_data.columns[2], hue=secondary_cat, ax=ax)
-                plt.title(f"{y_metric} by {primary_cat.capitalize()} and {secondary_cat.capitalize()}")
+                plt.title(f"{y_metric} by {primary_cat} and Year Group")
                 
-            plt.xlabel(primary_cat.capitalize())
+            plt.xlabel(primary_cat)
             plt.ylabel(y_metric)
             plt.xticks(rotation=45)
-            plt.legend(title=secondary_cat.capitalize(), bbox_to_anchor=(1.02, 1), loc='upper left', fontsize='small')
+            plt.legend(title="Year Group", bbox_to_anchor=(1.02, 1), loc='upper left', fontsize='small')
             plt.tight_layout()
             st.pyplot(fig)
             
@@ -645,17 +656,24 @@ with tab_graphical:
         else:  # Component/Stacked Bar Chart
             st.write("#### Component/Stacked Bar Chart")
             
+            # Create year groups
+            filtered_df['Year_Group'] = pd.cut(
+                filtered_df['Crop_Year'], 
+                bins=[1996, 2000, 2005, 2010, 2015, 2020],
+                labels=['1997-2000', '2001-2005', '2006-2010', '2011-2015', '2016-2019']
+            )
+            
             # Select category for x-axis
             primary_cat = st.selectbox(
                 "Select Primary Category (X-axis)",
-                ["region", "sex"],
+                ["Year_Group"],
                 key="stack_bar_x"
             )
             
             # Select category for stacking
             secondary_cat = st.selectbox(
                 "Select Secondary Category (Stacks)",
-                ["smoker"],
+                ["Crop"],
                 key="stack_bar_stack"
             )
             
@@ -666,14 +684,14 @@ with tab_graphical:
             # Convert to percentages
             percentages = counts.div(counts.sum(axis=1), axis=0) * 100
             
-            # Create stacked bar chart - Reduced size from (10, 6) to (8, 4.5)
+            # Create stacked bar chart
             fig, ax = plt.subplots(figsize=(8, 4.5))
             percentages.plot(kind='bar', stacked=True, ax=ax, colormap='viridis')
-            plt.title(f"Proportion of {secondary_cat.capitalize()} Status by {primary_cat.capitalize()}")
-            plt.xlabel(primary_cat.capitalize())
+            plt.title(f"Proportion of {secondary_cat} by {primary_cat.replace('_', ' ')}")
+            plt.xlabel(primary_cat.replace('_', ' '))
             plt.ylabel("Percentage (%)")
             plt.xticks(rotation=45)
-            plt.legend(title=secondary_cat.capitalize(), fontsize='small')
+            plt.legend(title=secondary_cat, fontsize='small')
             plt.tight_layout()
             st.pyplot(fig)
             
@@ -693,24 +711,27 @@ with tab_graphical:
         # Select category for pie chart
         pie_var = st.selectbox(
             "Select Category Variable",
-            ["region", "sex", "smoker", "age_groups"],
+            ["Crop", "Year_Group"],
             key="pie_var"
         )
         
-        if pie_var == "age_groups":
-            # Create age groups if not already present
-            age_bins = [18, 25, 35, 45, 55, 65, 100]
-            age_labels = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+']
-            filtered_df['age_group'] = pd.cut(filtered_df['age'], bins=age_bins, labels=age_labels, right=False)
-            pie_data = filtered_df['age_group'].value_counts()
+        if pie_var == "Year_Group":
+            # Create year groups if not already present
+            if 'Year_Group' not in filtered_df.columns:
+                filtered_df['Year_Group'] = pd.cut(
+                    filtered_df['Crop_Year'], 
+                    bins=[1996, 2000, 2005, 2010, 2015, 2020],
+                    labels=['1997-2000', '2001-2005', '2006-2010', '2011-2015', '2016-2019']
+                )
+            pie_data = filtered_df['Year_Group'].value_counts()
         else:
             pie_data = filtered_df[pie_var].value_counts()
             
-        # Create pie chart - Reduced size from (8, 8) to (6, 6)
+        # Create pie chart
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.pie(pie_data, labels=pie_data.index, autopct='%1.1f%%', shadow=True, startangle=90, textprops={'fontsize': 9})
         ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
-        plt.title(f"Distribution of {pie_var.replace('_', ' ').capitalize()}")
+        plt.title(f"Distribution of {pie_var.replace('_', ' ')}")
         st.pyplot(fig)
         
         # Show data table below the chart
@@ -736,7 +757,7 @@ with tab_graphical:
             # Select numerical variable
             num_var = st.selectbox(
                 "Select Numerical Variable",
-                ["age", "bmi", "children", "charges"],
+                ["Crop_Year", "Area", "Production", "Yield"],
                 key="hist_var"
             )
             
@@ -746,24 +767,24 @@ with tab_graphical:
             if use_segment:
                 segment_var = st.selectbox(
                     "Select Segmentation Variable",
-                    ["region", "sex", "smoker"],
+                    ["Crop"],
                     key="hist_segment"
                 )
                 
-                # Create segmented histogram with KDE - Reduced size from (10, 6) to (8, 4.5)
+                # Create segmented histogram with KDE
                 fig, ax = plt.subplots(figsize=(8, 4.5))
                 sns.histplot(data=filtered_df, x=num_var, hue=segment_var, kde=True, multiple="stack", ax=ax)
-                plt.title(f"Distribution of {num_var.capitalize()} by {segment_var.capitalize()}")
-                plt.xlabel(num_var.capitalize())
+                plt.title(f"Distribution of {num_var.replace('_', ' ')} by {segment_var}")
+                plt.xlabel(num_var.replace('_', ' '))
                 plt.ylabel("Frequency")
                 plt.legend(fontsize='small')
                 plt.tight_layout()
             else:
-                # Create simple histogram with KDE - Reduced size from (10, 6) to (8, 4.5)
+                # Create simple histogram with KDE
                 fig, ax = plt.subplots(figsize=(8, 4.5))
                 sns.histplot(data=filtered_df, x=num_var, kde=True, ax=ax)
-                plt.title(f"Distribution of {num_var.capitalize()}")
-                plt.xlabel(num_var.capitalize())
+                plt.title(f"Distribution of {num_var.replace('_', ' ')}")
+                plt.xlabel(num_var.replace('_', ' '))
                 plt.ylabel("Frequency")
                 plt.tight_layout()
             
@@ -779,23 +800,23 @@ with tab_graphical:
             # Select numerical variable for box plot
             num_var = st.selectbox(
                 "Select Numerical Variable",
-                ["age", "bmi", "children", "charges"],
+                ["Area", "Production", "Yield"],
                 key="box_var"
             )
             
             # Select categorical variable for grouping
             cat_var = st.selectbox(
                 "Group by Category",
-                ["region", "sex", "smoker"],
+                ["Crop"],
                 key="box_cat"
             )
             
-            # Create box plot - Reduced size from (10, 6) to (8, 4.5)
+            # Create box plot
             fig, ax = plt.subplots(figsize=(8, 4.5))
             sns.boxplot(data=filtered_df, x=cat_var, y=num_var, ax=ax)
-            plt.title(f"Box Plot of {num_var.capitalize()} by {cat_var.capitalize()}")
-            plt.xlabel(cat_var.capitalize())
-            plt.ylabel(num_var.capitalize())
+            plt.title(f"Box Plot of {num_var} by {cat_var}")
+            plt.xlabel(cat_var)
+            plt.ylabel(num_var)
             plt.xticks(rotation=45)
             plt.tight_layout()
             st.pyplot(fig)
