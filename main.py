@@ -5,6 +5,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import base64
 import scipy.stats as stats
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+import plotly.graph_objects as go
+import plotly.express as px
+from statsmodels.tsa.arima.model import ARIMA
+import statsmodels.api as sm
 
 # Set page configuration
 st.set_page_config(
@@ -96,7 +104,10 @@ if selected_crop != 'All':
 filtered_df = filtered_df[(filtered_df['Yield'] >= yield_range[0]) & (filtered_df['Yield'] <= yield_range[1])]
 
 # Create tabs for different analyses
-tab_tabular, tab_stats, tab_graphical = st.tabs(["Data Overview", "Descriptive Statistics", "Graphical Analysis"])
+tab_tabular, tab_stats, tab_graphical, tab_probability, tab_regression = st.tabs([
+    "Data Overview", "Descriptive Statistics", "Graphical Analysis", 
+    "Probability Methods", "Regression Modeling"
+])
 
 # Tabular Analysis Tab
 with tab_tabular:
@@ -345,6 +356,9 @@ with tab_stats:
         
         group_options = ['District', 'Crop', 'Crop_Year']
         group_by = st.selectbox("Group by", group_options)
+        
+        # Column name to access in the dataframe after possible renaming
+        group_by_col = 'Year' if group_by == 'Crop_Year' else group_by
 
         if group_by == 'Crop_Year':
             # For years, create reasonable bins
@@ -383,14 +397,14 @@ with tab_stats:
             numeric_group_data[col] = numeric_group_data[col].str.replace(',', '').astype(float)
         
         # Calculate metrics for insights
-        max_mean_category = numeric_group_data.loc[numeric_group_data['Mean Yield'].idxmax()][group_by]
-        min_mean_category = numeric_group_data.loc[numeric_group_data['Mean Yield'].idxmin()][group_by]
+        max_mean_category = numeric_group_data.loc[numeric_group_data['Mean Yield'].idxmax()][group_by_col]
+        min_mean_category = numeric_group_data.loc[numeric_group_data['Mean Yield'].idxmin()][group_by_col]
         max_mean_value = numeric_group_data['Mean Yield'].max()
         min_mean_value = numeric_group_data['Mean Yield'].min()
         relative_difference = ((max_mean_value - min_mean_value) / min_mean_value) * 100
         
         # Calculate variability within categories
-        highest_range_category = numeric_group_data.loc[(numeric_group_data['Max Yield'] - numeric_group_data['Min Yield']).idxmax()][group_by]
+        highest_range_category = numeric_group_data.loc[(numeric_group_data['Max Yield'] - numeric_group_data['Min Yield']).idxmax()][group_by_col]
         highest_range_value = numeric_group_data.loc[(numeric_group_data['Max Yield'] - numeric_group_data['Min Yield']).idxmax()]
         highest_range = float(highest_range_value['Max Yield']) - float(highest_range_value['Min Yield'])
         
@@ -1136,5 +1150,811 @@ with tab_graphical:
             else:
                 summary = filtered_df.groupby(cat_var)[num_var].describe()
             st.dataframe(summary, use_container_width=True)
+
+# After the existing Graphical Analysis Tab code, add the new Probability Methods Tab
+with tab_probability:
+    st.header("Probability Distribution Analysis")
+    st.write("Analyze and fit probability distributions to the crop data.")
+
+    # Distribution type selection
+    dist_section, param_section = st.columns([2, 1])
+    
+    with dist_section:
+        # Select variable to analyze
+        prob_var = st.selectbox(
+            "Select Variable for Distribution Analysis",
+            ["Yield", "Area", "Production"],
+            key="prob_var"
+        )
+        
+        # Select distribution type
+        dist_type = st.selectbox(
+            "Select Distribution Type",
+            ["Normal", "Log-Normal", "Gamma", "Exponential", "Weibull"],
+            key="dist_type"
+        )
+        
+        # Optional filter by crop and district
+        col1, col2 = st.columns(2)
+        with col1:
+            plot_by = st.radio("Plot distribution by:", ["All Data", "Crop", "District"])
+        
+        with col2:
+            if plot_by == "Crop":
+                selected_item = st.selectbox("Select Crop:", sorted(filtered_df['Crop'].unique()))
+                plot_data = filtered_df[filtered_df['Crop'] == selected_item][prob_var].dropna()
+                title_suffix = f"for {selected_item}"
+            elif plot_by == "District":
+                districts = sorted(filtered_df['District'].unique())
+                if len(districts) > 10:
+                    top_districts = filtered_df.groupby('District')[prob_var].mean().nlargest(10).index.tolist()
+                    selected_item = st.selectbox("Select District:", top_districts)
+                else:
+                    selected_item = st.selectbox("Select District:", districts)
+                plot_data = filtered_df[filtered_df['District'] == selected_item][prob_var].dropna()
+                title_suffix = f"for {selected_item} district"
+            else:
+                plot_data = filtered_df[prob_var].dropna()
+                title_suffix = "for all data"
+    
+    with param_section:
+        st.subheader("Distribution Parameters")
+        
+        # Fit distribution and show parameters
+        if len(plot_data) > 0:
+            if dist_type == "Normal":
+                mu, sigma = stats.norm.fit(plot_data)
+                st.metric("Mean (μ)", f"{mu:.4f}")
+                st.metric("Std Dev (σ)", f"{sigma:.4f}")
+                dist = stats.norm(mu, sigma)
+                param_text = f"μ = {mu:.4f}, σ = {sigma:.4f}"
+            elif dist_type == "Log-Normal":
+                shape, loc, scale = stats.lognorm.fit(plot_data)
+                st.metric("Shape", f"{shape:.4f}")
+                st.metric("Location", f"{loc:.4f}")
+                st.metric("Scale", f"{scale:.4f}")
+                dist = stats.lognorm(shape, loc, scale)
+                param_text = f"shape = {shape:.4f}, loc = {loc:.4f}, scale = {scale:.4f}"
+            elif dist_type == "Gamma":
+                shape, loc, scale = stats.gamma.fit(plot_data)
+                st.metric("Shape (k)", f"{shape:.4f}")
+                st.metric("Location", f"{loc:.4f}")
+                st.metric("Scale (θ)", f"{scale:.4f}")
+                dist = stats.gamma(shape, loc, scale)
+                param_text = f"k = {shape:.4f}, loc = {loc:.4f}, θ = {scale:.4f}"
+            elif dist_type == "Exponential":
+                loc, scale = stats.expon.fit(plot_data)
+                st.metric("Location", f"{loc:.4f}")
+                st.metric("Scale (λ)", f"{scale:.4f}")
+                dist = stats.expon(loc, scale)
+                param_text = f"loc = {loc:.4f}, λ = {scale:.4f}"
+            elif dist_type == "Weibull":
+                shape, loc, scale = stats.weibull_min.fit(plot_data)
+                st.metric("Shape (k)", f"{shape:.4f}")
+                st.metric("Location", f"{loc:.4f}")
+                st.metric("Scale", f"{scale:.4f}")
+                dist = stats.weibull_min(shape, loc, scale)
+                param_text = f"k = {shape:.4f}, loc = {loc:.4f}, scale = {scale:.4f}"
+            
+            # Goodness of fit test
+            ks_statistic, p_value = stats.kstest(plot_data, dist.cdf)
+            st.metric("K-S Test p-value", f"{p_value:.4f}")
+            if p_value < 0.05:
+                st.info("The data does not follow this distribution (p < 0.05)")
+            else:
+                st.success("The data likely follows this distribution (p >= 0.05)")
+    
+    # Create distribution plots
+    if len(plot_data) > 0:
+        # Plot histogram with fitted distribution
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Histogram
+        sns.histplot(plot_data, kde=False, stat="density", alpha=0.6, ax=ax)
+        
+        # Generate points for distribution curve
+        x = np.linspace(plot_data.min(), plot_data.max(), 1000)
+        y = dist.pdf(x)
+        
+        # Plot the PDF
+        plt.plot(x, y, 'r-', lw=2, label=f'Fitted {dist_type} PDF\n{param_text}')
+        plt.legend()
+        plt.title(f'{dist_type} Distribution Fit for {prob_var} {title_suffix}')
+        plt.xlabel(prob_var)
+        plt.ylabel('Density')
+        plt.grid(alpha=0.3)
+        st.pyplot(fig)
+        
+        # Probability calculations
+        st.subheader("Probability Calculations")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Probability of being less than X
+            less_than_value = st.number_input(
+                f"Probability of {prob_var} being less than:",
+                min_value=float(plot_data.min()),
+                max_value=float(plot_data.max()),
+                value=float(plot_data.median()),
+                step=0.1
+            )
+            prob_less = dist.cdf(less_than_value)
+            st.metric(f"P({prob_var} < {less_than_value:.2f})", f"{prob_less:.4f}")
+        
+        with col2:
+            # Probability of being greater than X
+            greater_than_value = st.number_input(
+                f"Probability of {prob_var} being greater than:",
+                min_value=float(plot_data.min()),
+                max_value=float(plot_data.max()),
+                value=float(plot_data.median()),
+                step=0.1,
+                key="greater_than"
+            )
+            prob_greater = 1 - dist.cdf(greater_than_value)
+            st.metric(f"P({prob_var} > {greater_than_value:.2f})", f"{prob_greater:.4f}")
+        
+        # Quantile (Percentile) calculation
+        st.subheader("Percentile Calculator")
+        percentile = st.slider(
+            "Select percentile:",
+            min_value=1,
+            max_value=99,
+            value=50,
+            step=1
+        )
+        
+        quantile_value = dist.ppf(percentile/100)
+        st.metric(f"{percentile}th Percentile of {prob_var}", f"{quantile_value:.4f}")
+        
+        # Add CDF plot
+        st.subheader("Cumulative Distribution Function")
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Calculate ECDF
+        sorted_data = np.sort(plot_data)
+        ecdf = np.arange(1, len(sorted_data)+1) / len(sorted_data)
+        
+        # Plot ECDF
+        plt.step(sorted_data, ecdf, label='Empirical CDF', where='post')
+        
+        # Plot theoretical CDF
+        x = np.linspace(plot_data.min(), plot_data.max(), 1000)
+        plt.plot(x, dist.cdf(x), 'r-', lw=2, label=f'Theoretical {dist_type} CDF')
+        
+        plt.grid(alpha=0.3)
+        plt.legend()
+        plt.title(f'CDF for {prob_var} {title_suffix}')
+        plt.xlabel(prob_var)
+        plt.ylabel('Cumulative Probability')
+        st.pyplot(fig)
+
+# Regression Modeling and Predictions Tab
+with tab_regression:
+    st.header("Regression Modeling and Predictions")
+    st.write("Build and evaluate regression models to analyze relationships and make predictions.")
+    
+    # Create two sub-tabs
+    reg_tab1, reg_tab2 = st.tabs(["Linear Regression", "Time Series Forecasting"])
+    
+    # Linear Regression Tab
+    with reg_tab1:
+        st.subheader("Linear Regression Analysis")
+        
+        # Model configuration section
+        st.write("### Model Configuration")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Select target variable (Y)
+            target_var = st.selectbox(
+                "Select Target Variable (Y)",
+                ["Yield", "Production"],
+                key="target_var"
+            )
+            
+            # Select predictor variable (X)
+            predictor_options = ["Area", "Crop_Year"]
+            if target_var == "Production":
+                predictor_options.append("Yield")
+            
+            predictor_var = st.selectbox(
+                "Select Predictor Variable (X)",
+                predictor_options,
+                key="predictor_var"
+            )
+            
+            # Filter selection
+            reg_filter = st.selectbox(
+                "Filter Data By",
+                ["None", "Crop", "District"],
+                key="reg_filter"
+            )
+            
+            if reg_filter == "Crop":
+                reg_filter_value = st.selectbox(
+                    "Select Crop",
+                    sorted(filtered_df['Crop'].unique()),
+                    key="reg_filter_value"
+                )
+                reg_data = filtered_df[filtered_df['Crop'] == reg_filter_value]
+                title_suffix = f"for {reg_filter_value}"
+            elif reg_filter == "District":
+                reg_filter_value = st.selectbox(
+                    "Select District",
+                    sorted(filtered_df['District'].unique()),
+                    key="reg_filter_value"
+                )
+                reg_data = filtered_df[filtered_df['District'] == reg_filter_value]
+                title_suffix = f"for {reg_filter_value} district"
+            else:
+                reg_data = filtered_df.copy()
+                title_suffix = "for all data"
+        
+        with col2:
+            # Model type
+            model_type = st.radio(
+                "Regression Type",
+                ["Simple Linear", "Polynomial"],
+                key="model_type"
+            )
+            
+            if model_type == "Polynomial":
+                poly_degree = st.slider(
+                    "Polynomial Degree",
+                    min_value=2,
+                    max_value=5,
+                    value=2,
+                    key="poly_degree"
+                )
+            
+            # Train-test split option
+            use_train_test = st.checkbox(
+                "Use Train-Test Split",
+                value=True,
+                key="use_train_test"
+            )
+            
+            if use_train_test:
+                test_size = st.slider(
+                    "Test Set Size (%)",
+                    min_value=10,
+                    max_value=50,
+                    value=20,
+                    key="test_size"
+                ) / 100
+        
+        # Check if we have enough data
+        if len(reg_data) < 10:
+            st.warning("Not enough data for regression analysis with current filters.")
+        else:
+            # Prepare data
+            X = reg_data[predictor_var].values.reshape(-1, 1)
+            y = reg_data[target_var].values
+            
+            # Create and fit the model
+            if model_type == "Simple Linear":
+                if use_train_test:
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+                    model = LinearRegression()
+                    model.fit(X_train, y_train)
+                    y_pred_train = model.predict(X_train)
+                    y_pred_test = model.predict(X_test)
+                    r2_train = r2_score(y_train, y_pred_train)
+                    r2_test = r2_score(y_test, y_pred_test)
+                    rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
+                    rmse_test = np.sqrt(mean_squared_error(y_test, y_pred_test))
+                else:
+                    model = LinearRegression()
+                    model.fit(X, y)
+                    y_pred = model.predict(X)
+                    r2 = r2_score(y, y_pred)
+                    rmse = np.sqrt(mean_squared_error(y, y_pred))
+            else:  # Polynomial
+                if use_train_test:
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+                    poly = PolynomialFeatures(degree=poly_degree)
+                    X_train_poly = poly.fit_transform(X_train)
+                    X_test_poly = poly.transform(X_test)
+                    
+                    model = LinearRegression()
+                    model.fit(X_train_poly, y_train)
+                    y_pred_train = model.predict(X_train_poly)
+                    y_pred_test = model.predict(X_test_poly)
+                    r2_train = r2_score(y_train, y_pred_train)
+                    r2_test = r2_score(y_test, y_pred_test)
+                    rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
+                    rmse_test = np.sqrt(mean_squared_error(y_test, y_pred_test))
+                else:
+                    poly = PolynomialFeatures(degree=poly_degree)
+                    X_poly = poly.fit_transform(X)
+                    
+                    model = LinearRegression()
+                    model.fit(X_poly, y)
+                    y_pred = model.predict(X_poly)
+                    r2 = r2_score(y, y_pred)
+                    rmse = np.sqrt(mean_squared_error(y, y_pred))
+            
+            # Display model results
+            st.write("### Model Results")
+            
+            # Display coefficients and equation
+            if model_type == "Simple Linear":
+                st.write(f"**Model Equation:** {target_var} = {model.intercept_:.4f} + {model.coef_[0]:,.4f} × {predictor_var}")
+            else:
+                equation = f"{target_var} = {model.intercept_:.4f}"
+                for i, coef in enumerate(model.coef_[1:]):
+                    if i == 0:
+                        equation += f" + {coef:.4f} × {predictor_var}"
+                    else:
+                        equation += f" + {coef:.4f} × {predictor_var}^{i+1}"
+                st.write(f"**Model Equation:** {equation}")
+            
+            # Display metrics
+            metric_cols = st.columns(2 if use_train_test else 2)
+            
+            if use_train_test:
+                metric_cols[0].metric("R² (Training)", f"{r2_train:.4f}")
+                metric_cols[1].metric("R² (Test)", f"{r2_test:.4f}")
+                metric_cols[0].metric("RMSE (Training)", f"{rmse_train:.4f}")
+                metric_cols[1].metric("RMSE (Test)", f"{rmse_test:.4f}")
+            else:
+                metric_cols[0].metric("R² (All Data)", f"{r2:.4f}")
+                metric_cols[1].metric("RMSE (All Data)", f"{rmse:.4f}")
+            
+            # Interpretation of R²
+            r2_value = r2_test if use_train_test else r2
+            if r2_value >= 0.75:
+                r2_interpretation = "strong"
+            elif r2_value >= 0.5:
+                r2_interpretation = "moderate"
+            elif r2_value >= 0.25:
+                r2_interpretation = "weak"
+            else:
+                r2_interpretation = "very weak"
+            
+            st.info(f"""
+            **Model Interpretation:**
+            
+            The R² value of {r2_value:.4f} indicates a {r2_interpretation} relationship between {predictor_var} and {target_var}.
+            This means that approximately {r2_value*100:.1f}% of the variance in {target_var} can be explained by {predictor_var}.
+            
+            {'The model performs similarly on training and test data, suggesting good generalization.' if use_train_test and abs(r2_train - r2_test) < 0.1 else 
+             'The difference between training and test performance suggests some overfitting.' if use_train_test else ''}
+            """)
+            
+            # Plot the regression
+            st.write("### Regression Plot")
+            
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            # Scatter plot of actual data
+            plt.scatter(X, y, alpha=0.5, color='blue', label='Actual data')
+            
+            # Line for predicted values
+            if model_type == "Simple Linear":
+                X_range = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+                y_range = model.predict(X_range)
+                plt.plot(X_range, y_range, color='red', linewidth=2, label='Regression line')
+            else:
+                X_range = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+                X_range_poly = poly.transform(X_range)
+                y_range = model.predict(X_range_poly)
+                plt.plot(X_range, y_range, color='red', linewidth=2, label=f'Polynomial (degree {poly_degree})')
+            
+            plt.xlabel(predictor_var)
+            plt.ylabel(target_var)
+            plt.title(f"{model_type} Regression of {target_var} vs {predictor_var} {title_suffix}")
+            plt.grid(alpha=0.3)
+            plt.legend()
+            st.pyplot(fig)
+            
+            # Residual plot
+            st.write("### Residual Analysis")
+            
+            if use_train_test:
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+                
+                # Training residuals
+                if model_type == "Simple Linear":
+                    residuals_train = y_train - model.predict(X_train)
+                else:
+                    residuals_train = y_train - model.predict(X_train_poly)
+                
+                ax1.scatter(y_pred_train, residuals_train, alpha=0.5)
+                ax1.axhline(y=0, color='r', linestyle='-')
+                ax1.set_xlabel("Predicted Values")
+                ax1.set_ylabel("Residuals")
+                ax1.set_title("Training Set Residuals")
+                ax1.grid(alpha=0.3)
+                
+                # Test residuals
+                if model_type == "Simple Linear":
+                    residuals_test = y_test - model.predict(X_test)
+                else:
+                    residuals_test = y_test - model.predict(X_test_poly)
+                
+                ax2.scatter(y_pred_test, residuals_test, alpha=0.5, color='orange')
+                ax2.axhline(y=0, color='r', linestyle='-')
+                ax2.set_xlabel("Predicted Values")
+                ax2.set_ylabel("Residuals")
+                ax2.set_title("Test Set Residuals")
+                ax2.grid(alpha=0.3)
+            else:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                
+                if model_type == "Simple Linear":
+                    residuals = y - model.predict(X)
+                else:
+                    residuals = y - model.predict(X_poly)
+                
+                plt.scatter(y_pred, residuals, alpha=0.5)
+                plt.axhline(y=0, color='r', linestyle='-')
+                plt.xlabel("Predicted Values")
+                plt.ylabel("Residuals")
+                plt.title("Residual Plot")
+                plt.grid(alpha=0.3)
+            
+            st.pyplot(fig)
+            
+            # Residual distribution
+            fig, ax = plt.subplots(figsize=(8, 5))
+            
+            if use_train_test:
+                residuals = np.concatenate([residuals_train, residuals_test])
+            
+            sns.histplot(residuals, kde=True, ax=ax)
+            plt.axvline(x=0, color='r', linestyle='--')
+            plt.xlabel("Residual Value")
+            plt.ylabel("Frequency")
+            plt.title("Distribution of Residuals")
+            plt.grid(alpha=0.3)
+            st.pyplot(fig)
+            
+            # Prediction for new values
+            st.write("### Make Predictions")
+            
+            new_x = st.number_input(
+                f"Enter a new {predictor_var} value:",
+                min_value=float(X.min()),
+                max_value=float(X.max()) * 1.5,
+                value=float(X.mean()),
+                step=0.1
+            )
+            
+            # Make prediction
+            if model_type == "Simple Linear":
+                prediction = model.predict(np.array([[new_x]]))[0]
+            else:
+                prediction = model.predict(poly.transform(np.array([[new_x]])))[0]
+            
+            st.metric(f"Predicted {target_var} for {predictor_var} = {new_x}", f"{prediction:.4f}")
+    
+    # Time Series Forecasting Tab
+    with reg_tab2:
+        st.subheader("Time Series Forecasting")
+        
+        # Configure time series
+        st.write("### Time Series Configuration")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            ts_var = st.selectbox(
+                "Select Variable to Forecast",
+                ["Yield", "Production", "Area"],
+                key="ts_var"
+            )
+            
+            ts_filter = st.selectbox(
+                "Filter By",
+                ["All Punjab", "Crop", "District", "Crop-District Combination"],
+                key="ts_filter"
+            )
+            
+            if ts_filter == "Crop":
+                ts_crop = st.selectbox(
+                    "Select Crop",
+                    sorted(filtered_df['Crop'].unique()),
+                    key="ts_crop"
+                )
+                ts_data = filtered_df[filtered_df['Crop'] == ts_crop]
+                title_suffix = f"for {ts_crop}"
+            elif ts_filter == "District":
+                ts_district = st.selectbox(
+                    "Select District",
+                    sorted(filtered_df['District'].unique()),
+                    key="ts_district"
+                )
+                ts_data = filtered_df[filtered_df['District'] == ts_district]
+                title_suffix = f"for {ts_district} district"
+            elif ts_filter == "Crop-District Combination":
+                ts_crop = st.selectbox(
+                    "Select Crop",
+                    sorted(filtered_df['Crop'].unique()),
+                    key="ts_crop_combo"
+                )
+                ts_district = st.selectbox(
+                    "Select District",
+                    sorted(filtered_df[filtered_df['Crop'] == ts_crop]['District'].unique()),
+                    key="ts_district_combo"
+                )
+                ts_data = filtered_df[(filtered_df['Crop'] == ts_crop) & (filtered_df['District'] == ts_district)]
+                title_suffix = f"for {ts_crop} in {ts_district} district"
+            else:
+                # Aggregate by year for all Punjab
+                ts_data = filtered_df.groupby('Crop_Year')[ts_var].mean().reset_index()
+                title_suffix = "for all Punjab"
+        
+        with col2:
+            # Model type selection
+            ts_model = st.selectbox(
+                "Forecasting Method",
+                ["ARIMA", "Linear Trend", "Exponential Smoothing"],
+                key="ts_model"
+            )
+            
+            if ts_model == "ARIMA":
+                # ARIMA parameters
+                p = st.slider("AR(p) Parameter", 0, 5, 1, key="arima_p")
+                d = st.slider("Differencing (d) Parameter", 0, 2, 1, key="arima_d")
+                q = st.slider("MA(q) Parameter", 0, 5, 1, key="arima_q")
+            
+            # Forecast horizon
+            horizon = st.slider(
+                "Forecast Horizon (Years)",
+                min_value=1,
+                max_value=10,
+                value=3,
+                key="horizon"
+            )
+        
+        # Check if we have enough data
+        if ts_filter in ["Crop-District Combination", "District", "Crop"]:
+            # Prepare time series data - aggregate if needed
+            if ts_filter == "Crop-District Combination":
+                # Data is already filtered for specific crop and district
+                if len(ts_data) < 5:
+                    st.warning("Not enough time series data for the selected combination.")
+                    st.stop()
+            else:
+                # Aggregate by year
+                ts_data = ts_data.groupby('Crop_Year')[ts_var].mean().reset_index()
+        
+        # Sort by year
+        ts_data = ts_data.sort_values('Crop_Year')
+        
+        # Display the time series data
+        st.write("### Historical Time Series Data")
+        
+        # Plot historical data
+        fig, ax = plt.subplots(figsize=(10, 6))
+        plt.plot(ts_data['Crop_Year'], ts_data[ts_var], marker='o', linestyle='-', color='blue')
+        plt.xlabel('Year')
+        plt.ylabel(ts_var)
+        plt.title(f'Historical {ts_var} {title_suffix}')
+        plt.grid(alpha=0.3)
+        st.pyplot(fig)
+        
+        # Calculate forecasts
+        st.write("### Forecast Results")
+        
+        # Get years for forecasting
+        train_years = ts_data['Crop_Year'].values
+        last_year = train_years[-1]
+        future_years = np.array([last_year + i for i in range(1, horizon + 1)])
+        all_years = np.concatenate([train_years, future_years])
+        
+        # Historical values
+        historical_values = ts_data[ts_var].values
+        
+        # Generate forecasts
+        if ts_model == "ARIMA":
+            try:
+                # Fit ARIMA model
+                model = ARIMA(historical_values, order=(p, d, q))
+                model_fit = model.fit()
+                
+                # Forecast
+                forecast_result = model_fit.forecast(steps=horizon)
+                forecast_values = forecast_result
+                
+                # Generate confidence intervals
+                forecast_ci = np.array([model_fit.get_forecast(steps=horizon).conf_int(alpha=0.05)])
+                lower_ci = forecast_ci[0, :, 0]
+                upper_ci = forecast_ci[0, :, 1]
+                
+                # Model summary
+                model_details = model_fit.summary().tables[1].as_html()
+                st.write("**ARIMA Model Summary:**")
+                st.write(model_details, unsafe_allow_html=True)
+                
+            except Exception as e:
+                st.error(f"Error fitting ARIMA model: {e}")
+                st.info("Try different parameters or use a simpler model.")
+                st.stop()
+                
+        elif ts_model == "Linear Trend":
+            # Linear trend model
+            X = np.array(range(len(historical_values))).reshape(-1, 1)
+            y = historical_values
+            
+            model = LinearRegression()
+            model.fit(X, y)
+            
+            # Make predictions for future years
+            X_future = np.array(range(len(historical_values), len(historical_values) + horizon)).reshape(-1, 1)
+            forecast_values = model.predict(X_future)
+            
+            # Simple confidence interval based on historical RMSE
+            y_pred = model.predict(X)
+            rmse = np.sqrt(mean_squared_error(y, y_pred))
+            lower_ci = forecast_values - 1.96 * rmse
+            upper_ci = forecast_values + 1.96 * rmse
+            
+            # Display model details
+            st.write("**Linear Trend Model:**")
+            st.write(f"Slope: {model.coef_[0]:.4f}, Intercept: {model.intercept_:.4f}")
+            st.write(f"R²: {r2_score(y, y_pred):.4f}, RMSE: {rmse:.4f}")
+            
+        else:  # Exponential Smoothing
+            # Simple exponential smoothing
+            try:
+                model = sm.tsa.ExponentialSmoothing(
+                    historical_values, 
+                    trend='add',
+                    seasonal=None,
+                    damped_trend=True
+                ).fit()
+                
+                # Make forecast
+                forecast_result = model.forecast(horizon)
+                forecast_values = forecast_result
+                
+                # Get confidence intervals
+                forecast_ci = np.array([model.get_forecast(horizon).conf_int(alpha=0.05)])
+                lower_ci = forecast_ci[0, :, 0]
+                upper_ci = forecast_ci[0, :, 1]
+                
+                # Model summary
+                st.write("**Exponential Smoothing Model:**")
+                st.write(f"Alpha (level): {model.params['smoothing_level']:.4f}")
+                if 'smoothing_trend' in model.params:
+                    st.write(f"Beta (trend): {model.params['smoothing_trend']:.4f}")
+                st.write(f"SSE: {model.sse:.4f}")
+                
+            except Exception as e:
+                st.error(f"Error fitting Exponential Smoothing model: {e}")
+                st.info("Try a different model or filter for this data.")
+                st.stop()
+        
+        # Display forecast values
+        forecast_df = pd.DataFrame({
+            'Year': future_years,
+            f'Forecasted {ts_var}': forecast_values,
+            'Lower 95% CI': lower_ci,
+            'Upper 95% CI': upper_ci
+        })
+        
+        st.write("#### Forecasted Values")
+        st.dataframe(forecast_df.style.format({
+            f'Forecasted {ts_var}': "{:.4f}",
+            'Lower 95% CI': "{:.4f}",
+            'Upper 95% CI': "{:.4f}"
+        }), use_container_width=True)
+        
+        # Plot forecast
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Plot historical data
+        plt.plot(train_years, historical_values, marker='o', linestyle='-', color='blue', label='Historical')
+        
+        # Plot forecast
+        plt.plot(future_years, forecast_values, marker='s', linestyle='--', color='red', label='Forecast')
+        
+        # Plot confidence intervals
+        plt.fill_between(future_years, lower_ci, upper_ci, color='red', alpha=0.2, label='95% Confidence Interval')
+        
+        plt.xlabel('Year')
+        plt.ylabel(ts_var)
+        plt.title(f'{ts_model} Forecast of {ts_var} {title_suffix}')
+        plt.grid(alpha=0.3)
+        plt.legend()
+        st.pyplot(fig)
+        
+        # Forecast interpretation
+        avg_change = np.mean(np.diff(forecast_values))
+        relative_change = (forecast_values[-1] - historical_values[-1]) / historical_values[-1] * 100
+        
+        direction = "increase" if avg_change > 0 else "decrease"
+        
+        st.info(f"""
+        **Forecast Interpretation:**
+        
+        The model predicts an average annual {direction} of {abs(avg_change):.4f} in {ts_var} over the next {horizon} years.
+        
+        By {future_years[-1]}, {ts_var} is projected to {'increase' if relative_change > 0 else 'decrease'} by {abs(relative_change):.2f}% compared to the last observed value.
+        
+        The width of the confidence interval indicates the level of uncertainty in the forecast - wider intervals suggest more uncertainty.
+        """)
+        
+        # Model validation
+        if len(historical_values) >= 10:
+            st.write("### Model Validation")
+            
+            # Split data for validation
+            train_size = len(historical_values) - 3  # Use last 3 years for validation
+            train_data = historical_values[:train_size]
+            val_data = historical_values[train_size:]
+            val_years = train_years[train_size:]
+            
+            # Train model on subset
+            if ts_model == "ARIMA":
+                val_model = ARIMA(train_data, order=(p, d, q))
+                val_model_fit = val_model.fit()
+                val_forecast = val_model_fit.forecast(steps=len(val_data))
+            elif ts_model == "Linear Trend":
+                X_train = np.array(range(len(train_data))).reshape(-1, 1)
+                val_model = LinearRegression().fit(X_train, train_data)
+                X_val = np.array(range(len(train_data), len(historical_values))).reshape(-1, 1)
+                val_forecast = val_model.predict(X_val)
+            else:  # Exponential Smoothing
+                val_model = sm.tsa.ExponentialSmoothing(
+                    train_data, 
+                    trend='add',
+                    seasonal=None,
+                    damped_trend=True
+                ).fit()
+                val_forecast = val_model.forecast(len(val_data))
+            
+            # Calculate validation metrics
+            val_mse = mean_squared_error(val_data, val_forecast)
+            val_rmse = np.sqrt(val_mse)
+            val_mae = np.mean(np.abs(val_data - val_forecast))
+            val_mape = np.mean(np.abs((val_data - val_forecast) / val_data)) * 100
+            
+            # Display validation metrics
+            col1, col2 = st.columns(2)
+            col1.metric("Validation RMSE", f"{val_rmse:.4f}")
+            col2.metric("Validation MAPE", f"{val_mape:.2f}%")
+            
+            # Plot validation results
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            # Plot all historical data
+            plt.plot(train_years, historical_values, marker='o', linestyle='-', color='blue', label='Historical')
+            
+            # Highlight training and validation
+            plt.plot(train_years[:train_size], train_data, 'o-', color='green', alpha=0.5, label='Training Data')
+            plt.plot(val_years, val_data, 'o-', color='purple', label='Actual Validation Data')
+            plt.plot(val_years, val_forecast, 's--', color='red', label='Validation Forecast')
+            
+            plt.xlabel('Year')
+            plt.ylabel(ts_var)
+            plt.title(f'Validation of {ts_model} Model for {ts_var} {title_suffix}')
+            plt.grid(alpha=0.3)
+            plt.legend()
+            st.pyplot(fig)
+            
+            # Validation interpretation
+            if val_mape < 10:
+                accuracy_desc = "excellent"
+            elif val_mape < 20:
+                accuracy_desc = "good"
+            elif val_mape < 30:
+                accuracy_desc = "acceptable"
+            else:
+                accuracy_desc = "poor"
+                
+            st.info(f"""
+            **Validation Results:**
+            
+            The model shows {accuracy_desc} forecasting accuracy with a Mean Absolute Percentage Error (MAPE) of {val_mape:.2f}%.
+            
+            {"This suggests the current forecasts are likely to be reliable." if val_mape < 30 else "This suggests caution when using these forecasts for planning."}
+            
+            The RMSE of {val_rmse:.4f} indicates the typical error magnitude in the same units as {ts_var}.
+            """)
 
 
