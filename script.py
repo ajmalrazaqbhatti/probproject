@@ -2,7 +2,7 @@ import pandas as pd
 import os
 import numpy as np
 
-def preprocess_punjab_data(input_file='croppunjab.csv', output_file='x.csv'):
+def preprocess_punjab_data(input_file='APY.csv', output_file='x.csv'):
     try:
         # Check if input file exists
         if not os.path.exists(input_file):
@@ -20,11 +20,17 @@ def preprocess_punjab_data(input_file='croppunjab.csv', output_file='x.csv'):
             print(f"Error: The following required columns are missing: {', '.join(missing_columns)}")
             return False
         
-        # Filter to keep only Wheat, Rice, and Sugarcane crops
-        print("Filtering data to keep only Wheat, Rice, and Sugarcane crops...")
-        df = df[df['Crop'].isin(['Wheat', 'Rice', 'Sugarcane'])].copy()
+        # Filter to keep only Wheat and Rice crops in Punjab
+        print("Filtering data to keep only Wheat and Rice crops in Punjab...")
         
-        # Check if any data remains after crop filtering
+        # Check if State column exists
+        if 'State' in df.columns:
+            df = df[(df['Crop'].isin(['Wheat', 'Rice'])) & (df['State'] == 'Punjab')].copy()
+        else:
+            print("Warning: 'State' column not found. Filtering only by crop type.")
+            df = df[df['Crop'].isin(['Wheat', 'Rice'])].copy()
+        
+        # Check if any data remains after filtering
         if df.empty:
             print("No data found for Wheat, Rice, or Sugarcane crops.")
             return False
