@@ -151,7 +151,7 @@ with tab_stats:
     
     with stats_tabs[0]:  # Numerical Variables Details
         # Select a numerical variable to analyze
-        numerical_cols = ['Crop_Year', 'Area', 'Production', 'Yield']
+        numerical_cols = ['Area', 'Production', 'Yield']  # Removed Crop_Year
         selected_num_col = st.selectbox("Select a numerical variable", numerical_cols)
         
         # Display variable summary
@@ -164,6 +164,23 @@ with tab_stats:
         central_cols[1].metric("Median", f"{filtered_df[selected_num_col].median():,.2f}")
         central_cols[2].metric("Mode", f"{filtered_df[selected_num_col].mode()[0]:,.2f}")
         
+        # Add insight for central tendency
+        mean_val = filtered_df[selected_num_col].mean()
+        median_val = filtered_df[selected_num_col].median()
+        skew_insight = "relatively symmetric" if abs(mean_val - median_val) < (mean_val * 0.1) else "right-skewed" if mean_val > median_val else "left-skewed"
+        
+        st.info(f"""
+        **📊 Central Tendency Insight:**
+        
+        The average {selected_num_col.lower()} is {mean_val:,.2f}, with half of all values falling below {median_val:,.2f} (median).
+        
+        The distribution appears to be {skew_insight}. {
+        "Values are fairly evenly distributed around the average." if skew_insight == "relatively symmetric" else
+        "There are likely some unusually high values pulling the average up." if skew_insight == "right-skewed" else
+        "There are likely some unusually low values pulling the average down."
+        }
+        """)
+        
         # Dispersion metrics
         st.write("#### Dispersion Measures")
         disp_cols = st.columns(3)
@@ -171,12 +188,45 @@ with tab_stats:
         disp_cols[1].metric("Variance", f"{filtered_df[selected_num_col].var():,.2f}")
         disp_cols[2].metric("Range", f"{filtered_df[selected_num_col].max() - filtered_df[selected_num_col].min():,.2f}")
         
+        # Add insight for dispersion
+        std_dev = filtered_df[selected_num_col].std()
+        cv = (std_dev / mean_val) * 100 if mean_val != 0 else 0
+        
+        st.info(f"""
+        **📏 Dispersion Insight:**
+        
+        The standard deviation of {std_dev:,.2f} shows how much {selected_num_col.lower()} typically varies from the average.
+        
+        The coefficient of variation is {cv:.1f}%, indicating {"high" if cv > 30 else "moderate" if cv > 15 else "low"} variability 
+        relative to the mean. {
+        "This suggests significant differences across the data." if cv > 30 else
+        "This suggests moderate differences across the data." if cv > 15 else
+        "This suggests relatively consistent values across the data."
+        }
+        """)
+        
         # Range metrics
         st.write("#### Range Values")
         range_cols = st.columns(3)
         range_cols[0].metric("Minimum", f"{filtered_df[selected_num_col].min():,.2f}")
         range_cols[1].metric("Maximum", f"{filtered_df[selected_num_col].max():,.2f}")
         range_cols[2].metric("IQR", f"{filtered_df[selected_num_col].quantile(0.75) - filtered_df[selected_num_col].quantile(0.25):,.2f}")
+
+        # Add insight for range values
+        min_val = filtered_df[selected_num_col].min()
+        max_val = filtered_df[selected_num_col].max()
+        iqr = filtered_df[selected_num_col].quantile(0.75) - filtered_df[selected_num_col].quantile(0.25)
+        spread_ratio = (max_val - min_val) / iqr if iqr != 0 else 0
+        
+        st.info(f"""
+        **🔍 Range Insight:**
+        
+        The values range from {min_val:,.2f} to {max_val:,.2f}, spanning a total of {max_val - min_val:,.2f} units.
+        
+        The IQR (middle 50% of data) is {iqr:,.2f}, meaning most values are concentrated within this range.
+        
+        The ratio of total range to IQR is {spread_ratio:.1f}, which {"suggests potential outliers" if spread_ratio > 3 else "indicates a reasonable distribution without extreme outliers"}.
+        """)
 
         # Percentiles
         st.write("#### Percentiles")
@@ -188,10 +238,25 @@ with tab_stats:
         for i, (p, v) in enumerate(zip(percentiles, percentile_values)):
             perc_cols[i].metric(f"{int(p*100)}th", f"{v:,.2f}")
         
+        # Add insight for percentiles
+        p90_p10_ratio = percentile_values[4] / percentile_values[0] if percentile_values[0] != 0 else 0
+        
+        st.info(f"""
+        **📈 Percentile Insight:**
+        
+        The median (50th percentile) is {percentile_values[2]:,.2f}, with 90% of all values falling below {percentile_values[4]:,.2f}.
+        
+        The ratio between the 90th and 10th percentiles is {p90_p10_ratio:.1f}x, which {"indicates high inequality across observations" if p90_p10_ratio > 5 else "suggests moderate differences" if p90_p10_ratio > 2 else "shows relatively consistent values"}.
+        
+        {
+        f"The top 1% of values exceed {percentile_values[6]:,.2f}, which may represent exceptional cases worthy of special attention." if p90_p10_ratio > 2 else
+        "The distribution appears relatively balanced across different percentiles."
+        }
+        """)
             
     with stats_tabs[1]:  # Categorical Variables
         # Select a categorical variable
-        cat_cols = ['District', 'Crop']
+        cat_cols = ['District', 'Crop', 'Crop_Year']  # Added Crop_Year here
         selected_cat_col = st.selectbox("Select a categorical variable", cat_cols)
         
         # Show frequency distribution
@@ -205,6 +270,26 @@ with tab_stats:
         
         # Display as a table
         st.dataframe(cat_counts, use_container_width=True)
+        
+        # Add insight for frequency distribution
+        top_category = cat_counts.iloc[0][selected_cat_col]
+        top_percentage = float(cat_counts.iloc[0]['Percentage'].rstrip('%'))
+        n_categories = len(cat_counts)
+        hhi_index = sum((float(p.rstrip('%'))/100)**2 for p in cat_counts['Percentage'])
+        
+        st.info(f"""
+        **📊 Frequency Distribution Insight:**
+        
+        There are {n_categories} unique values for {selected_cat_col}, with "{top_category}" being the most common ({top_percentage:.1f}% of all records).
+        
+        The Herfindahl-Hirschman Index (measuring concentration) is {hhi_index:.3f}, indicating {"high concentration" if hhi_index > 0.25 else "moderate concentration" if hhi_index > 0.15 else "low concentration"}.
+        
+        {
+        "This suggests that a few categories dominate the dataset." if hhi_index > 0.25 else
+        "The distribution has some dominant categories but maintains diversity." if hhi_index > 0.15 else
+        "The distribution is relatively balanced across many categories."
+        }
+        """)
         
         # Contingency tables
         st.subheader("Contingency Tables")
@@ -237,6 +322,22 @@ with tab_stats:
         with col2:
             st.write("Count Distribution:")
             st.dataframe(raw_cont_table, use_container_width=True)
+        
+        # Add insight for contingency tables
+        max_diff = cont_table.max(axis=1).max() - cont_table.min(axis=1).min()
+        
+        st.info(f"""
+        **🔄 Contingency Table Insight:**
+        
+        This table shows how {second_cat_col} is distributed within each {selected_cat_col} category.
+        
+        The maximum difference in distribution percentages is {max_diff:.1f}%, which {"indicates strong associations between the variables" if max_diff > 50 else "suggests moderate associations" if max_diff > 25 else "suggests relatively weak associations"}.
+        
+        {
+        "Look for rows with significantly different distributions - these indicate categories with unique relationships to " + second_cat_col + "." if max_diff > 25 else
+        "The distributions appear relatively similar across categories, indicating limited association between these variables."
+        }
+        """)
         
     with stats_tabs[2]:  # Aggregated Views
         st.subheader("Aggregated Data by Categories")
@@ -276,10 +377,87 @@ with tab_stats:
         st.write("Statistical summary of crop yields grouped by " + group_by + ":")
         st.dataframe(group_data, use_container_width=True)
         
-        # Add some insights below the table
-        if group_by == 'Crop':
-            if len(group_data) > 1:
-                st.info(f"💡 Insight: Compare yield metrics between different crops to understand which crop has better productivity in the selected regions and time period.")
+        # Convert formatted columns back to numeric for calculations
+        numeric_group_data = group_data.copy()
+        for col in ['Mean Yield', 'Median Yield', 'Min Yield', 'Max Yield']:
+            numeric_group_data[col] = numeric_group_data[col].str.replace(',', '').astype(float)
+        
+        # Calculate metrics for insights
+        max_mean_category = numeric_group_data.loc[numeric_group_data['Mean Yield'].idxmax()][group_by]
+        min_mean_category = numeric_group_data.loc[numeric_group_data['Mean Yield'].idxmin()][group_by]
+        max_mean_value = numeric_group_data['Mean Yield'].max()
+        min_mean_value = numeric_group_data['Mean Yield'].min()
+        relative_difference = ((max_mean_value - min_mean_value) / min_mean_value) * 100
+        
+        # Calculate variability within categories
+        highest_range_category = numeric_group_data.loc[(numeric_group_data['Max Yield'] - numeric_group_data['Min Yield']).idxmax()][group_by]
+        highest_range_value = numeric_group_data.loc[(numeric_group_data['Max Yield'] - numeric_group_data['Min Yield']).idxmax()]
+        highest_range = float(highest_range_value['Max Yield']) - float(highest_range_value['Min Yield'])
+        
+        # Add comprehensive insight based on the group_by variable
+        if group_by == 'District':
+            st.info(f"""
+            **🌾 District Yield Insight:**
+            
+            The highest average yield is found in {max_mean_category} ({max_mean_value:.2f} tonnes/hectare), while the lowest is in {min_mean_category} ({min_mean_value:.2f} tonnes/hectare).
+            
+            This represents a {relative_difference:.1f}% difference between the best and worst performing districts.
+            
+            {highest_range_category} shows the greatest variability in yields, with a range of {highest_range:.2f} tonnes/hectare between minimum and maximum values. This could indicate greater sensitivity to seasonal conditions or varied farming practices.
+            
+            Districts with consistently high median values represent areas with more stable productivity, potentially indicating better agricultural infrastructure or more favorable growing conditions.
+            """)
+        elif group_by == 'Crop':
+            st.info(f"""
+            **🌱 Crop Yield Insight:**
+            
+            {max_mean_category} shows the highest average yield at {max_mean_value:.2f} tonnes/hectare, while {min_mean_category} has the lowest at {min_mean_value:.2f} tonnes/hectare.
+            
+            The {relative_difference:.1f}% yield difference between crops reflects their biological differences, growing requirements, and market focus.
+            
+            {highest_range_category} demonstrates the greatest yield variability (range of {highest_range:.2f} tonnes/hectare), suggesting it may be more sensitive to growing conditions or management practices.
+            
+            Crops with higher median values relative to their means may indicate more consistent production regardless of external factors, making them potentially more reliable for farmers.
+            """)
+        else:  # Crop_Year
+            # Check if there's a trend over years
+            years = numeric_group_data['Year'].astype(int).tolist()
+            means = numeric_group_data['Mean Yield'].tolist()
+            
+            # Simple trend detection
+            if len(years) > 2:
+                if means[-1] > means[0]:
+                    trend = "increasing"
+                elif means[-1] < means[0]:
+                    trend = "decreasing"
+                else:
+                    trend = "stable"
+                
+                # Calculate average annual change
+                total_change = means[-1] - means[0]
+                years_diff = years[-1] - years[0]
+                annual_change = total_change / years_diff if years_diff > 0 else 0
+            else:
+                trend = "undetermined"
+                annual_change = 0
+            
+            st.info(f"""
+            **📅 Yearly Yield Insight:**
+            
+            The data shows a generally {trend} trend in crop yields over the selected time period, with an average annual change of {annual_change:.3f} tonnes/hectare.
+            
+            The highest average yield was recorded in {max_mean_category} ({max_mean_value:.2f} tonnes/hectare), while the lowest was in {min_mean_category} ({min_mean_value:.2f} tonnes/hectare).
+            
+            Year {highest_range_category} shows the greatest yield variability (range of {highest_range:.2f} tonnes/hectare), which might indicate unusual weather conditions or policy changes affecting agriculture that year.
+            
+            Years with smaller differences between mean and median yields typically represent more normal growing conditions, while larger differences may indicate years with localized crop failures or exceptional harvests.
+            """)
+        
+        # Add specific insight for crop comparison if filtering by crop
+        if group_by == 'Crop' and selected_crop != 'All':
+            st.info(f"""
+            💡 **Focused Insight:** You're currently viewing only {selected_crop} data. To compare different crops, change the Crop filter to 'All' in the sidebar.
+            """)
 
 # Graphical Analysis Tab
 with tab_graphical:
@@ -516,7 +694,7 @@ with tab_graphical:
                                     "CI Error": mean - ci_lower  # For error bars
                                 })
                             elif len(subset) == 1:  # Only one data point, no CI
-                                mean = subset.iloc[0]
+                                mean = subset.iloc(0)
                                 multi_ci_data.append({
                                     primary_cat: p_cat,
                                     secondary_cat: s_cat,
@@ -576,7 +754,7 @@ with tab_graphical:
                                     "CI Error": mean - ci_lower
                                 })
                             elif len(subset) == 1:
-                                mean = subset.iloc[0]
+                                mean = subset.iloc(0)
                                 multi_ci_data.append({
                                     primary_cat: p_cat,
                                     secondary_cat: s_cat,
@@ -626,7 +804,7 @@ with tab_graphical:
                                     "CI Error": mean - ci_lower
                                 })
                             elif len(subset) == 1:
-                                mean = subset.iloc[0]
+                                mean = subset.iloc(0)
                                 multi_ci_data.append({
                                     primary_cat: p_cat,
                                     secondary_cat: s_cat,
