@@ -9,10 +9,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-import plotly.graph_objects as go
-import plotly.express as px
-from statsmodels.tsa.arima.model import ARIMA
-import statsmodels.api as sm
 
 # Set page configuration
 st.set_page_config(
@@ -1510,68 +1506,6 @@ with tab_regression:
         plt.title(f"{model_type} Regression of {target_var} vs {predictor_var} {title_suffix}")
         plt.grid(alpha=0.3)
         plt.legend()
-        st.pyplot(fig)
-        
-        # Residual plot
-        st.write("### Residual Analysis")
-        
-        if use_train_test:
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-            
-            # Training residuals
-            if model_type == "Simple Linear":
-                residuals_train = y_train - model.predict(X_train)
-            else:
-                residuals_train = y_train - model.predict(X_train_poly)
-            
-            ax1.scatter(y_pred_train, residuals_train, alpha=0.5)
-            ax1.axhline(y=0, color='r', linestyle='-')
-            ax1.set_xlabel("Predicted Values")
-            ax1.set_ylabel("Residuals")
-            ax1.set_title("Training Set Residuals")
-            ax1.grid(alpha=0.3)
-            
-            # Test residuals
-            if model_type == "Simple Linear":
-                residuals_test = y_test - model.predict(X_test)
-            else:
-                residuals_test = y_test - model.predict(X_test_poly)
-            
-            ax2.scatter(y_pred_test, residuals_test, alpha=0.5, color='orange')
-            ax2.axhline(y=0, color='r', linestyle='-')
-            ax2.set_xlabel("Predicted Values")
-            ax2.set_ylabel("Residuals")
-            ax2.set_title("Test Set Residuals")
-            ax2.grid(alpha=0.3)
-        else:
-            fig, ax = plt.subplots(figsize=(10, 6))
-            
-            if model_type == "Simple Linear":
-                residuals = y - model.predict(X)
-            else:
-                residuals = y - model.predict(X_poly)
-            
-            plt.scatter(y_pred, residuals, alpha=0.5)
-            plt.axhline(y=0, color='r', linestyle='-')
-            plt.xlabel("Predicted Values")
-            plt.ylabel("Residuals")
-            plt.title("Residual Plot")
-            plt.grid(alpha=0.3)
-        
-        st.pyplot(fig)
-        
-        # Residual distribution
-        fig, ax = plt.subplots(figsize=(8, 5))
-        
-        if use_train_test:
-            residuals = np.concatenate([residuals_train, residuals_test])
-        
-        sns.histplot(residuals, kde=True, ax=ax)
-        plt.axvline(x=0, color='r', linestyle='--')
-        plt.xlabel("Residual Value")
-        plt.ylabel("Frequency")
-        plt.title("Distribution of Residuals")
-        plt.grid(alpha=0.3)
         st.pyplot(fig)
         
         # Prediction for new values
