@@ -1153,8 +1153,8 @@ with tab_graphical:
 
 # After the existing Graphical Analysis Tab code, add the new Probability Methods Tab
 with tab_probability:
-    st.header("Probability Distribution Analysis")
-    st.write("Analyze and fit probability distributions to the crop data.")
+    st.header("Normal Distribution Analysis")
+    st.write("Analyze and fit Normal probability distribution to the crop data.")
 
     # Distribution type selection
     dist_section, param_section = st.columns([2, 1])
@@ -1165,13 +1165,6 @@ with tab_probability:
             "Select Variable for Distribution Analysis",
             ["Yield", "Area", "Production"],
             key="prob_var"
-        )
-        
-        # Select distribution type
-        dist_type = st.selectbox(
-            "Select Distribution Type",
-            ["Normal", "Log-Normal", "Gamma", "Exponential", "Weibull"],
-            key="dist_type"
         )
         
         # Optional filter by crop and district
@@ -1198,51 +1191,24 @@ with tab_probability:
                 title_suffix = "for all data"
     
     with param_section:
-        st.subheader("Distribution Parameters")
+        st.subheader("Normal Distribution Parameters")
         
         # Fit distribution and show parameters
         if len(plot_data) > 0:
-            if dist_type == "Normal":
-                mu, sigma = stats.norm.fit(plot_data)
-                st.metric("Mean (μ)", f"{mu:.4f}")
-                st.metric("Std Dev (σ)", f"{sigma:.4f}")
-                dist = stats.norm(mu, sigma)
-                param_text = f"μ = {mu:.4f}, σ = {sigma:.4f}"
-            elif dist_type == "Log-Normal":
-                shape, loc, scale = stats.lognorm.fit(plot_data)
-                st.metric("Shape", f"{shape:.4f}")
-                st.metric("Location", f"{loc:.4f}")
-                st.metric("Scale", f"{scale:.4f}")
-                dist = stats.lognorm(shape, loc, scale)
-                param_text = f"shape = {shape:.4f}, loc = {loc:.4f}, scale = {scale:.4f}"
-            elif dist_type == "Gamma":
-                shape, loc, scale = stats.gamma.fit(plot_data)
-                st.metric("Shape (k)", f"{shape:.4f}")
-                st.metric("Location", f"{loc:.4f}")
-                st.metric("Scale (θ)", f"{scale:.4f}")
-                dist = stats.gamma(shape, loc, scale)
-                param_text = f"k = {shape:.4f}, loc = {loc:.4f}, θ = {scale:.4f}"
-            elif dist_type == "Exponential":
-                loc, scale = stats.expon.fit(plot_data)
-                st.metric("Location", f"{loc:.4f}")
-                st.metric("Scale (λ)", f"{scale:.4f}")
-                dist = stats.expon(loc, scale)
-                param_text = f"loc = {loc:.4f}, λ = {scale:.4f}"
-            elif dist_type == "Weibull":
-                shape, loc, scale = stats.weibull_min.fit(plot_data)
-                st.metric("Shape (k)", f"{shape:.4f}")
-                st.metric("Location", f"{loc:.4f}")
-                st.metric("Scale", f"{scale:.4f}")
-                dist = stats.weibull_min(shape, loc, scale)
-                param_text = f"k = {shape:.4f}, loc = {loc:.4f}, scale = {scale:.4f}"
+            # Fit normal distribution
+            mu, sigma = stats.norm.fit(plot_data)
+            st.metric("Mean (μ)", f"{mu:.4f}")
+            st.metric("Std Dev (σ)", f"{sigma:.4f}")
+            dist = stats.norm(mu, sigma)
+            param_text = f"μ = {mu:.4f}, σ = {sigma:.4f}"
             
             # Goodness of fit test
             ks_statistic, p_value = stats.kstest(plot_data, dist.cdf)
             st.metric("K-S Test p-value", f"{p_value:.4f}")
             if p_value < 0.05:
-                st.info("The data does not follow this distribution (p < 0.05)")
+                st.info("The data does not follow the Normal distribution (p < 0.05)")
             else:
-                st.success("The data likely follows this distribution (p >= 0.05)")
+                st.success("The data likely follows the Normal distribution (p >= 0.05)")
     
     # Create distribution plots
     if len(plot_data) > 0:
@@ -1257,9 +1223,9 @@ with tab_probability:
         y = dist.pdf(x)
         
         # Plot the PDF
-        plt.plot(x, y, 'r-', lw=2, label=f'Fitted {dist_type} PDF\n{param_text}')
+        plt.plot(x, y, 'r-', lw=2, label=f'Fitted Normal PDF\n{param_text}')
         plt.legend()
-        plt.title(f'{dist_type} Distribution Fit for {prob_var} {title_suffix}')
+        plt.title(f'Normal Distribution Fit for {prob_var} {title_suffix}')
         plt.xlabel(prob_var)
         plt.ylabel('Density')
         plt.grid(alpha=0.3)
@@ -1320,7 +1286,7 @@ with tab_probability:
         
         # Plot theoretical CDF
         x = np.linspace(plot_data.min(), plot_data.max(), 1000)
-        plt.plot(x, dist.cdf(x), 'r-', lw=2, label=f'Theoretical {dist_type} CDF')
+        plt.plot(x, dist.cdf(x), 'r-', lw=2, label='Theoretical Normal CDF')
         
         plt.grid(alpha=0.3)
         plt.legend()
