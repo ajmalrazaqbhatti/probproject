@@ -1,22 +1,20 @@
 # Core packages
-streamlit
-pandas
-numpy
+streamlit>=1.22.0
+pandas>=1.5.3
+numpy>=1.23.5
 
 # Data visualization
-matplotlib
-seaborn
-plotly
+matplotlib>=3.7.1
+seaborn>=0.12.2
 
 # Statistical analysis
-scipy
-statsmodels
+scipy>=1.10.1
 
 # Excel file support
 openpyxl==3.1.2
 
 # Optional but recommended for better performance
-pyarrow
+pyarrow>=12.0.0
 
 # Machine learning
-scikit-learn
+scikit-learn>=1.2.2
