@@ -70,9 +70,23 @@ setup_venv() {
     echo "Installation completed successfully."
 }
 
+# Make run script executable
+make_scripts_executable() {
+    echo "Making run script executable..."
+    if [ "$OS" != "Windows" ]; then
+        chmod +x run.sh
+        if [ $? -ne 0 ]; then
+            echo "Warning: Failed to make run.sh executable. You may need to run 'chmod +x run.sh' manually."
+        else
+            echo "Successfully made run.sh executable."
+        fi
+    fi
+}
+
 # Main execution
 detect_os
 setup_venv
+make_scripts_executable
 
 echo ""
 echo "Setup complete! To run the application:"

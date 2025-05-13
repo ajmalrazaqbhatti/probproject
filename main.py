@@ -9,6 +9,10 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 
+#==========================================================================
+# SECTION 0: APPLICATION SETUP AND DATA LOADING
+#==========================================================================
+
 # Set page configuration
 st.set_page_config(
     page_title="Rice and Wheat Production In India Punjab",
@@ -30,16 +34,20 @@ def render_svg(svg_file):
     """
 
 # Display logo and title in a layout
-st.markdown(render_svg("logo.svg"), unsafe_allow_html=True)
+st.markdown(render_svg("public/logo.svg"), unsafe_allow_html=True)
 
 # Add page title and description
 st.title("Rice and Wheat Production In India Punjab")
 st.write("Comprehensive analysis of Rice and Wheat production and yield across districts in Punjab.")
 
+#--------------------------------------------------------------------------
+# SUBSECTION 0.1: DATA LOADING AND CACHING
+#--------------------------------------------------------------------------
+
 # Load the dataset
 @st.cache_data
 def load_data():
-    data = pd.read_csv('croppunjab.csv')
+    data = pd.read_csv('datasets/croppunjab.csv')
     return data
 
 # Load the data
@@ -48,6 +56,10 @@ try:
 except Exception as e:
     st.error(f"Error loading data: {e}")
     st.stop()
+
+#--------------------------------------------------------------------------
+# SUBSECTION 0.2: SIDEBAR FILTERS
+#--------------------------------------------------------------------------
 
 # Move data filters to sidebar
 st.sidebar.header("Data Filters")
@@ -81,6 +93,10 @@ yield_range = st.sidebar.slider(
     step=0.1
 )
 
+#--------------------------------------------------------------------------
+# SUBSECTION 0.3: DATA FILTERING
+#--------------------------------------------------------------------------
+
 # Filter data based on selections
 filtered_df = df.copy()
 
@@ -110,6 +126,10 @@ tab_tabular, tab_stats, tab_graphical, tab_probability, tab_regression = st.tabs
 
 # Tabular Analysis Tab
 with tab_tabular:
+    #--------------------------------------------------------------------------
+    # SUBSECTION 1.1: DATA OVERVIEW TABS
+    #--------------------------------------------------------------------------
+    
     # Create sub-tabs within Data Overview
     overview_tab, data_tab = st.tabs(["Data Explanation", "Tabular Representation"])
     
@@ -151,6 +171,10 @@ with tab_tabular:
 with tab_graphical:
     st.header("Graphical Analysis")
     
+    #--------------------------------------------------------------------------
+    # SUBSECTION 1.2: VISUALIZATION TABS
+    #--------------------------------------------------------------------------
+    
     # Create subtabs for different visualization types
     viz_tabs = st.tabs(["Bar Charts", "Pie Charts", "Distributions"])
     
@@ -162,6 +186,10 @@ with tab_graphical:
         se = stats.sem(data)
         h = se * stats.t.ppf((1 + confidence) / 2, n - 1)
         return m, m - h, m + h  # mean, lower bound, upper bound
+    
+    #--------------------------------------------------------------------------
+    # SUBSECTION 1.3: BAR CHARTS
+    #--------------------------------------------------------------------------
     
     # Bar Charts Tab
     with viz_tabs[0]:
@@ -734,6 +762,10 @@ with tab_graphical:
                 st.write("Percentages (%):")
                 st.dataframe(percentages.round(1), use_container_width=True)
     
+    #--------------------------------------------------------------------------
+    # SUBSECTION 1.4: PIE CHARTS
+    #--------------------------------------------------------------------------
+    
     # Pie Charts Tab
     with viz_tabs[1]:
         st.subheader("Pie Chart Analysis")
@@ -805,6 +837,10 @@ with tab_graphical:
         pie_data_df["Percentage"] = (pie_data_df[f"Total {metric_label}"] / pie_data_df[f"Total {metric_label}"].sum() * 100).round(2).astype(str) + '%'
         st.dataframe(pie_data_df, use_container_width=True)
         
+    #--------------------------------------------------------------------------
+    # SUBSECTION 1.5: DISTRIBUTIONS
+    #--------------------------------------------------------------------------
+    
     # Distributions Tab
     with viz_tabs[2]:
         st.subheader("Distribution Analysis")
@@ -924,8 +960,16 @@ with tab_graphical:
 with tab_stats:
     st.header("Descriptive Statistical Measures")
     
+    #--------------------------------------------------------------------------
+    # SUBSECTION 2.1: STATISTICAL VIEWS TABS
+    #--------------------------------------------------------------------------
+    
     # Create sub-tabs for different statistical views
     stats_tabs = st.tabs(["Numerical Variables", "Categorical Variables", "Aggregated Views"])
+    
+    #--------------------------------------------------------------------------
+    # SUBSECTION 2.2: NUMERICAL VARIABLES ANALYSIS
+    #--------------------------------------------------------------------------
     
     with stats_tabs[0]:  # Numerical Variables Details
         # Select a numerical variable to analyze
@@ -1041,6 +1085,10 @@ with tab_stats:
         **Policy Relevance:** These percentiles help identify threshold values for categorizing agricultural performance and targeting interventions, particularly in the context of Punjab's critical contribution to India's food security.
         """)
             
+    #--------------------------------------------------------------------------
+    # SUBSECTION 2.3: CATEGORICAL VARIABLES ANALYSIS
+    #--------------------------------------------------------------------------
+    
     with stats_tabs[1]:  # Categorical Variables
         # Select a categorical variable
         cat_cols = ['District', 'Crop', 'Crop_Year']  # Added Crop_Year here
@@ -1123,6 +1171,10 @@ with tab_stats:
         **Planning Implications:** Understanding these relationships is essential for developing targeted agricultural strategies that recognize the specific characteristics and needs of different regions and crops.
         """)
         
+    #--------------------------------------------------------------------------
+    # SUBSECTION 2.4: AGGREGATED DATA ANALYSIS
+    #--------------------------------------------------------------------------
+    
     with stats_tabs[2]:  # Aggregated Views
         st.subheader("Aggregated Data by Categories")
         st.write("Explore how crop yields vary across different categorical variables.")
@@ -1261,6 +1313,10 @@ with tab_probability:
     st.header("Normal Distribution Analysis")
     st.write("Analyze and fit Normal probability distribution to the crop data.")
 
+    #--------------------------------------------------------------------------
+    # SUBSECTION 3.1: DISTRIBUTION CONFIGURATION
+    #--------------------------------------------------------------------------
+
     # Distribution type selection
     dist_section, param_section = st.columns([2, 1])
     
@@ -1315,6 +1371,10 @@ with tab_probability:
             else:
                 st.success("The data likely follows the Normal distribution (p >= 0.05)")
     
+    #--------------------------------------------------------------------------
+    # SUBSECTION 3.2: DISTRIBUTION VISUALIZATION
+    #--------------------------------------------------------------------------
+    
     # Create distribution plots
     if len(plot_data) > 0:
         # Plot histogram with fitted distribution
@@ -1335,6 +1395,10 @@ with tab_probability:
         plt.ylabel('Density')
         plt.grid(alpha=0.3)
         st.pyplot(fig)
+        
+        #--------------------------------------------------------------------------
+        # SUBSECTION 3.3: PROBABILITY CALCULATIONS
+        #--------------------------------------------------------------------------
         
         # Probability calculations
         st.subheader("Probability Calculations")
@@ -1378,6 +1442,10 @@ with tab_probability:
         quantile_value = dist.ppf(percentile/100)
         st.metric(f"{percentile}th Percentile of {prob_var}", f"{quantile_value:.4f}")
         
+        #--------------------------------------------------------------------------
+        # SUBSECTION 3.4: CUMULATIVE DISTRIBUTION FUNCTION
+        #--------------------------------------------------------------------------
+        
         # Add CDF plot
         st.subheader("Cumulative Distribution Function")
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -1399,6 +1467,10 @@ with tab_probability:
         plt.xlabel(prob_var)
         plt.ylabel('Cumulative Probability')
         st.pyplot(fig)
+        
+        #--------------------------------------------------------------------------
+        # SUBSECTION 3.5: DISTRIBUTION INSIGHTS
+        #--------------------------------------------------------------------------
         
         # Calculate key statistics for insights
         actual_skewness = stats.skew(plot_data)
@@ -1429,6 +1501,10 @@ with tab_probability:
 with tab_regression:
     st.header("Regression Modeling and Predictions")
     st.write("Build and evaluate linear regression models to analyze relationships and make predictions.")
+    
+    #--------------------------------------------------------------------------
+    # SUBSECTION 4.1: MODEL CONFIGURATION
+    #--------------------------------------------------------------------------
     
     # Linear Regression Analysis
     st.subheader("Linear Regression Analysis")
@@ -1500,6 +1576,10 @@ with tab_regression:
                 value=20,
                 key="test_size"
             ) / 100
+    
+    #--------------------------------------------------------------------------
+    # SUBSECTION 4.2: MODEL CREATION AND EVALUATION
+    #--------------------------------------------------------------------------
     
     # Check if we have enough data
     if len(reg_data) < 10:
@@ -1574,6 +1654,10 @@ with tab_regression:
         **Statistical Value:** This regression analysis demonstrates the dataset's potential for predictive modeling and examining relationships between key agricultural variables, as highlighted in the dataset's statistical and modeling potential.
         """)
 
+        #-----------------------------------------------------------------------
+        # SUBSECTION 4.3: REGRESSION VISUALIZATION
+        #-----------------------------------------------------------------------
+        
         # Plot the regression
         st.write("### Regression Plot")
         
@@ -1594,6 +1678,10 @@ with tab_regression:
         plt.legend()
         st.pyplot(fig)
         
+        #-----------------------------------------------------------------------
+        # SUBSECTION 4.4: PREDICTIONS
+        #----------------------------------------------------------------------
+        
         # Prediction for new values
         st.write("### Make Predictions")
         
@@ -1609,6 +1697,10 @@ with tab_regression:
         prediction = model.predict(np.array([[new_x]]))[0]
         
         st.metric(f"Predicted {target_var} for {predictor_var} = {new_x}", f"{prediction:.4f}")
+        
+        #--------------------------------------------------------------------------
+        # SUBSECTION 4.5: PRACTICAL APPLICATIONS
+        #--------------------------------------------------------------------------
         
         # After the prediction section, add a note about practical applications
         st.write("### Practical Applications")
