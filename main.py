@@ -719,7 +719,7 @@ with tab_graphical:
             
             # Limit to top districts if needed
             if primary_cat == 'District':
-                top_districts = filtered_df.groupby('Area').sum().nlargest(10).index.tolist()
+                top_districts = filtered_df.groupby('District')['Area'].sum().nlargest(10).index.tolist()
                 stack_df = filtered_df[filtered_df['District'].isin(top_districts)]
             else:
                 stack_df = filtered_df
